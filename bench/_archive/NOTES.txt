@@ -1,0 +1,10 @@
+﻿Archive of intermediate benchmark data (safe to delete; nothing here is read by
+lcb_bench.py or bench/report.md).
+
+  generations_16k.jsonl / eval_16k.jsonl  byte-identical copies of the finished
+      100-problem code-generation run at cap 16384 (same as bench/qwen38-flash-next-q2/).
+  summary_16k.json                        that run's _summary.json.
+  report_16k.md / report_16k.csv          report as of that run.
+  rerun32k_partial_gen.jsonl              15 answers regenerated with a 32768-token
+      budget (the problems that hit the 16384 cap): 7 finished below 32k, 8 did not.
+      Never graded - kept as evidence of the cap-sensitivity note in the docs.

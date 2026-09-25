@@ -1,6 +1,13 @@
 # LiveCodeBench
 Official repository for the paper "LiveCodeBench: Holistic and Contamination Free Evaluation of Large Language Models for Code"
 
+> **Local quick start (this clone):** [`README_MINIMAL.md`](README_MINIMAL.md) —
+> 5 commands, any local model (llama.cpp / LM Studio / vLLM / Ollama), one
+> `SCORE` plus tok/s, and a total comparison table. Tool: [`lcb_bench.py`](lcb_bench.py).
+> Measurement detail: [`MINIMAL_BENCHMARK.md`](MINIMAL_BENCHMARK.md) ·
+> per-model commands: [`BENCHMARK_GUIDE.md`](BENCHMARK_GUIDE.md).
+> The upstream `lcb_runner/` below needs an OpenAI API key and Linux (`SIGALRM`).
+
 <p align="center">
     <a href="https://livecodebench.github.io/">🏠 Home Page</a> •
     <a href="https://huggingface.co/livecodebench/">💻 Data </a> •
