@@ -1,5 +1,5 @@
 {
-  "name": "RUN",
+  "name": "qwen38-flash-next-q2-noharness",
   "server_model": "unsloth/Qwen3.8-Flash-Next-GGUF:UD-Q2_K_XL",
   "harness": "no",
   "generated_at": "2026-09-24T09:59:54",

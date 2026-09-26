@@ -18,7 +18,16 @@ Why this exists
 Pipeline: generate -> extract code -> run the LCB test cases in sandboxed child
 processes -> pass@k per difficulty + generation speed metrics -> report.
 
-Everything checkpoints under bench/<model>/ so you can Ctrl+C or crash and just
+Two things are asked out loud and never guessed:
+* WHICH MODEL: the label defaults to the model id the server reports on
+  --base-url, so a row in bench/report.md always says which model it is.
+  Pass --name to use a shorter label you choose yourself.
+* WHICH MODE: is an agent chat (a harness) sharing this model server? Answer
+  when asked, or pass --harness yes|no for a detached run. The answer becomes
+  part of the run folder (-harness / -noharness) so both modes are two
+  comparable rows instead of overwriting each other.
+
+Everything checkpoints under bench/<run>/ so you can Ctrl+C or crash and just
 re-run the same command.
 
 Usage examples
@@ -29,8 +38,8 @@ Usage examples
   #    (with -ngl 99 / --n-gpu-layers for GPU offload) then:
   python lcb_bench.py --name "qwen3-8b-instruct-q5" --workers 8
 
-  # 2) Fast smoke test on 10 problems:
-  python lcb_bench.py --name smoke --limit 10
+  # 2) Fast smoke test on 10 problems (label optional):
+  python lcb_bench.py --limit 10
 
   # 3) Thinking model, more samples:
   python lcb_bench.py --name "r1-distill-14b" --n 5 --max-tokens 32768 --workers 8 \
@@ -44,6 +53,10 @@ Usage examples
 
   # 6) Sanity-check the Windows evaluator (no model server needed):
   python lcb_bench.py --self-test
+
+  # 7) Detached / from an agent chat, where nothing can be answered:
+  python lcb_bench.py --harness yes --harness-note "deepseek-harness" \
+      --speed-probe --random-sample 100 --workers 1 --max-tokens 16384
 
 Outputs per model: bench/<name>/generations.jsonl (raw outputs, append-only),
 bench/<name>/generations.json (official LCB output format),
@@ -71,6 +84,7 @@ from decimal import Decimal
 from io import StringIO
 from types import ModuleType
 from unittest.mock import mock_open, patch
+from urllib.parse import urlparse
 
 import requests
 
@@ -488,6 +502,12 @@ def extract_top_answer(model_output):
 # -----------------------------------------------------------------------------
 
 _tls = None
+_API_KEY = None
+
+
+def _auth_headers():
+    """Bearer header for servers that want one (--api-key); empty otherwise."""
+    return {"Authorization": f"Bearer {_API_KEY}"} if _API_KEY else {}
 
 
 def _session():
@@ -497,7 +517,9 @@ def _session():
     if _tls is None:
         _tls = threading.local()
     if not hasattr(_tls, "session"):
-        _tls.session = requests.Session()
+        s = requests.Session()
+        s.headers.update(_auth_headers())
+        _tls.session = s
     return _tls.session
 
 
@@ -1152,22 +1174,335 @@ def slugify(name):
     return re.sub(r"[^A-Za-z0-9._-]+", "-", name).strip("-") or "model"
 
 
-def harness_detected():
-    """"yes" if this process was started from inside the deepseek-harness agent
-    (its shells export DSH_* vars), else "no". Recorded in the summary and shown
-    in the report, because a harness chat hitting the same -np 1 server queues
-    with the benchmark and inflates wall time. Override with --harness yes|no."""
-    return "yes" if any(os.environ.get(v) for v in ("DSH_SESSION_ID", "DSH_SHELL")) else "no"
+SCEN_SUFFIX = {"codegen": "", "exec": "-exec", "top": "-top"}
+HARNESS_SUFFIX = {"yes": "-harness", "no": "-noharness"}
+
+
+def harness_env_hint():
+    """Only ever a HINT, never an assumption: agent toolkits whose environment
+    happens to be visible in this shell. The harness value itself always comes
+    from the human (--harness, or the question asked by ask_harness_mode)."""
+    hints = []
+    if os.environ.get("DSH_SESSION_ID") or os.environ.get("DSH_SHELL"):
+        hints.append("deepseek-harness")
+    if os.environ.get("CURSOR_TRACE_ID") or os.environ.get("CURSOR_SESSION_ID"):
+        hints.append("cursor")
+    if os.environ.get("CODEX_SHELL") or os.environ.get("CODEX_SANDBOX"):
+        hints.append("codex-cli")
+    if os.environ.get("CLAUDE_CODE_SESSION") or os.environ.get("CLAUDE_SESSION_ID"):
+        hints.append("claude-code")
+    return hints
+
+
+def harness_url_hint():
+    """An address for the harness, if this shell knows one (DSH_WEB_URL). It is a
+    suggestion for the note only - it never decides yes/no on its own."""
+    url = os.environ.get("DSH_WEB_URL") or ""
+    return url.strip().rstrip("/") or None
+
+
+def harness_target(note, quiet=False):
+    """Turn a harness note into something reachable, or None if it is a plain name
+    or a file path. Only loopback/private hosts are ever probed."""
+    txt = (note or "").strip().strip('"')
+    if not txt:
+        return None
+    if "\\" in txt or (len(txt) > 1 and txt[1] == ":" and txt[0].isalpha()):
+        return None                      # a Windows path is not an address
+    if "://" not in txt:
+        # bare host:port / host - only if it looks like a host at all
+        if "." not in txt and ":" not in txt:
+            return None
+        txt = "http://" + txt
+    try:
+        parsed = urlparse(txt)
+    except Exception:
+        return None
+    if not parsed.netloc:
+        return None
+    host = parsed.netloc.split("@")[-1].split(":")[0].lower()
+    if not (host in ("localhost", "127.0.0.1", "::1", "0.0.0.0")
+            or host.startswith("127.") or host.startswith("192.168.")
+            or host.startswith("10.") or host.startswith("172.")
+            or host.endswith(".local") or host.endswith(".localhost")):
+        if not quiet:
+            print(f"     note '{note}' looks like a remote host - not probing it,"
+                  " only your own machine is.")
+        return None
+    return f"{parsed.scheme or 'http'}://{parsed.netloc}"
+
+
+def probe_harness(note, timeout=3):
+    """Evidence, not a claim: can this machine reach the harness address right now?
+    Never decides the harness column - only records whether the address answers."""
+    target = harness_target(note)
+    if not target:
+        return None
+    rec = {"target": target, "checked_at": dt.datetime.now().isoformat(timespec="seconds")}
+    try:
+        resp = requests.get(target, timeout=timeout, allow_redirects=False)
+        rec.update(reachable=True, status=resp.status_code)
+    except Exception as exc:
+        rec.update(reachable=False, status=None, error=type(exc).__name__)
+    return rec
+
+
+def _load_json(path):
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return None
+
+
+HARNESS_ADDR_FILE = os.path.join("bench", "harness-address.json")
+
+
+def harness_addr_candidates(limit=3):
+    """Addresses worth offering as a choice, best first: the agent that started this
+    shell, the address saved by an earlier run, and addresses recorded by recent
+    harness=yes runs. Duplicates dropped; only your own machine is ever probed, so a
+    remote note stays text it was never turned into a choice. Every entry is a
+    suggestion to pick from - it never decides the harness column on its own."""
+    out = []
+
+    def add(raw, label, probe=True):
+        if len(out) >= limit:
+            return
+        target = harness_target(raw, quiet=True)
+        if not target or any(target == got[0] for got in out):
+            return
+        if not probe:
+            out.append((target, label))
+            return
+        rec = probe_harness(target) or {}
+        tag = (f"answers now (HTTP {rec.get('status')})" if rec.get("reachable")
+               else "not answering")
+        out.append((target, f"{label} - {tag}"))
+
+    env = harness_url_hint()
+    if env:
+        add(env, "the agent that started this shell (DSH_WEB_URL)")
+    saved = _load_json(HARNESS_ADDR_FILE) or {}
+    if saved.get("address"):
+        when = ((saved.get("last_check") or {}).get("checked_at")
+                or saved.get("saved_at") or "")[:10]
+        add(saved["address"], f"your saved harness address (saved {when})")
+    found = []
+    if os.path.isdir("bench"):
+        for name in os.listdir("bench"):
+            path = os.path.join("bench", name, "_summary.json")
+            try:
+                if os.path.isfile(path):
+                    found.append((os.path.getmtime(path), path))
+            except OSError:
+                continue
+    for _, path in sorted(found, reverse=True)[:limit]:
+        data = _load_json(path) or {}
+        if data.get("harness") == "yes" and data.get("harness_note"):
+            folder = os.path.basename(os.path.dirname(path))
+            add(data["harness_note"], f"recorded by run {data.get('name') or folder}")
+    if not out:
+        # Nothing known: ask the usual local port once. It only becomes a choice if
+        # something actually answers there - a guess that nobody answers is never
+        # offered, let alone used.
+        probe = probe_harness("http://127.0.0.1:3080")
+        if probe and probe.get("reachable"):
+            out.append((probe["target"], f"found by asking 127.0.0.1:3080"
+                                        f" (HTTP {probe.get('status')})"))
+    return out[:limit]
+
+
+def save_harness_addr(note, probe_rec=None):
+    """Remember the harness address in use, so the next run offers it instead of
+    asking you to type it again. Names and paths are not addresses: nothing saved."""
+    target = harness_target(note)
+    if not target:
+        return
+    data = {"address": target,
+            "saved_at": dt.datetime.now().isoformat(timespec="seconds")}
+    if probe_rec:
+        data["last_check"] = {k: probe_rec.get(k)
+                             for k in ("reachable", "status", "checked_at")}
+    try:
+        os.makedirs("bench", exist_ok=True)
+        with open(HARNESS_ADDR_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=1)
+    except OSError:
+        pass
+
+
+def harness_auto_note():
+    """The address for a run that cannot be asked (--harness yes, detached): the
+    best candidate there is, or (None, None)."""
+    cands = harness_addr_candidates(limit=1)
+    return cands[0] if cands else (None, None)
+
+
+def _ask(prompt):
+    """input() that survives a closed stdin (piped runs, Start-Process, agents) and
+    a Ctrl-C (no traceback - it says what to do instead)."""
+    try:
+        return input(prompt)
+    except EOFError:
+        print("\n(no keyboard here to answer with - rerun with the answer in the"
+              " command line: --harness yes|no, and --name LABEL if you want a label)")
+        return None
+    except KeyboardInterrupt:
+        raise SystemExit("\nInterrupted at the question, so nothing was started. Rerun"
+                         " and answer it, or put the answers in the command line:"
+                         " --harness yes|no (and --name LABEL).")
+
+
+HARNESS_ANSWER_WORDS = {"1", "2", "3", "y", "n", "yes", "no", "u", "unknown"}
+
+
+def ask_label(derived):
+    """Ask what this run should be called. Refuses answers that clearly belong to
+    the harness question below it - a run called "1" is not a name."""
+    while True:
+        got = _ask("\nQ1 - name question. What should this run be called in bench/"
+                   " and in the report?\n"
+                   f"     the model id is: {derived}\n"
+                   "     Enter = use that; or type a shorter name (NOT 1/2/3, those"
+                   " are the next question): ")
+        if got is None:
+            return derived
+        got = got.strip()
+        if not got:
+            return derived
+        if got.lower() in HARNESS_ANSWER_WORDS:
+            print(f"     '{got}' is an answer to the harness question, which comes"
+                  " after this one. Press Enter to take the model id, or type a name.")
+            continue
+        slug = slugify(got)
+        if not slug or slug.strip("._-") == "":
+            print("     That has no letters or digits in it. Press Enter to take the"
+                  " model id, or type a name.")
+            continue
+        return slug
+
+
+def ask_harness_mode(suggested, folders=None):
+    """Ask the human how this run shares the model server. The bench never
+    guesses: no answer recorded, no default taken silently.
+    folders maps the answer to the run folder it produces, so the question shows
+    which answer belongs to which row.
+    Returns (mode, note, source) with mode in yes/no/None."""
+    opts = {"no": 1, "yes": 2, None: 3}
+    dflt = str(opts.get(suggested, 3))
+    print("\nQ2 - harness question. This bench never guesses it, so it must be answered:")
+    print("  Is an agent chat (a harness) open on this same model server right now?")
+    for mode, num in (("no", 1), ("yes", 2)):
+        extra = ("its requests queue behind the benchmark, so wall time (gen-min)"
+                 " inflates, tok/s does not" if mode == "yes"
+                 else "your own window, nothing else hits the model server")
+        folder = f"   -> bench\\{folders[mode]}" if folders else ""
+        print(f"  [{num}] {mode:<6} {extra}{folder}")
+    unknown_extra = "leave that column empty" + (
+        f"   -> bench\\{folders[None]}" if folders else "")
+    print(f"  [3] unknown  {unknown_extra}")
+    hints = harness_env_hint()
+    if hints:
+        print("  hint: this shell looks like it was started by"
+              f" {', '.join(hints)}. That is a hint only - it is not assumed.")
+    while True:
+        ans = _ask(f"Your choice [1/2/3] (Enter = {dflt}): ")
+        if ans is None:
+            return None, None, "not answered (nothing to ask here)"
+        ans = ans.strip().lower() or dflt
+        if ans in ("1", "no", "n"):
+            mode = "no"
+            break
+        if ans in ("2", "yes", "y"):
+            mode = "yes"
+            break
+        if ans in ("3", "u", "unknown"):
+            return None, None, "not answered"
+        print("Please answer 1, 2 or 3.")
+    note = None
+    if mode == "yes":
+        note = ask_harness_which(harness_addr_candidates())
+    return mode, note, "you answered"
+
+
+def ask_harness_which(cands):
+    """Which harness it was: numbered choices, the first one is the default so
+    Enter answers it and nothing has to be typed. A different address or a plain
+    name can always be typed - last choice, or straight away."""
+    if not cands:
+        got = _ask("  Which harness is it? Its address (the http://127.0.0.1:3080"
+                   " style) or a name. Enter to skip: ")
+        return got.strip() if got else None
+    print("  Which harness is it? The bench pings an address at the start and end")
+    print("  of the run, so an address is evidence; nothing is ever routed through it.")
+    for num, (addr, label) in enumerate(cands, 1):
+        print(f"  [{num}] {addr:<26} {label}")
+    nxt = len(cands) + 1
+    print(f"  [{nxt}] another one: type its address (http://host:port) or a name")
+    while True:
+        ans = _ask(f"  Your choice [1-{nxt}] (Enter = 1): ")
+        if ans is None:
+            return None
+        ans = ans.strip()
+        if not ans:
+            return cands[0][0]
+        if ans.isdigit():
+            pick = int(ans)
+            if 1 <= pick <= len(cands):
+                return cands[pick - 1][0]
+            got = _ask("      address (http://host:port) or a name: ")
+            return got.strip() if got else None
+        return ans
+
+
+def recorded_harness(run_dir):
+    """Harness value already recorded for an existing run dir, or None."""
+    sp = os.path.join(run_dir, "_summary.json")
+    if not os.path.isfile(sp):
+        return None
+    try:
+        with open(sp, encoding="utf-8") as f:
+            return json.load(f).get("harness")
+    except Exception:
+        return None
+
+
+def resolve_run_dir(base, scen, mode):
+    """Pick bench/<folder> for this run: one label per model + the scenario + the
+    harness answer, so the same command answered twice gives two comparable rows.
+    Legacy folders (no harness suffix) are reused when their recorded answer
+    agrees with this one."""
+    scen_suf = SCEN_SUFFIX[scen]
+    if scen_suf and base.endswith(scen_suf):
+        scen_suf = ""   # --name already carries it; do not build "...-exec-exec"
+    cands = []
+    if mode:
+        cands.append(base + scen_suf + HARNESS_SUFFIX[mode])
+    cands.append(base + scen_suf)
+    for c in cands:
+        d = os.path.join("bench", c)
+        if not os.path.isdir(d):
+            continue
+        rec = recorded_harness(d)
+        if mode is None or rec in (None, "unknown", mode):
+            return c
+    return cands[0]
 
 
 def main():
     ap = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    ap.add_argument("--name", help="Short name for this model run (folder + report row)")
+    ap.add_argument("--name", help="Short label for this model (folder + report row)."
+                                   " Optional: without it the label comes from the model"
+                                   " id the server reports, so the report always says"
+                                   " which model a row is.")
     ap.add_argument("--base-url", default="http://127.0.0.1:8080/v1",
                     help="OpenAI-compatible base URL (LM Studio: http://localhost:1234/v1)")
-    ap.add_argument("--api-key", default=None)
+    ap.add_argument("--api-key", default=None,
+                    help="Bearer token for servers that demand one (vLLM and friends)."
+                         " Also read from LCB_API_KEY. Not needed for llama-server.")
     ap.add_argument("--model", default=None, help="Server model id (default: first from /v1/models)")
     ap.add_argument("--n", type=int, default=1, help="Samples per problem")
     ap.add_argument("--temperature", type=float, default=0.2)
@@ -1214,21 +1549,34 @@ def main():
     ap.add_argument("--self-test", action="store_true",
                     help="Sanity-check the Windows evaluator and exit (no server needed)")
     ap.add_argument("--harness", default=None, choices=["yes", "no"],
-                    help="Record in the summary/report whether this run was made while "
-                         "the deepseek-harness chat (or any agent) was open on the same "
-                         "model server. A shared -np 1 server queues the two, which "
-                         "inflates wall time - check this column before comparing rows. "
-                         "Default: auto-detected from DSH_* env vars.")
+                    help="Answer the harness question up front instead of being asked:"
+                         " was an agent chat open on the same model server during this"
+                         " run? Its requests queue behind the benchmark on an -np 1"
+                         " server, which inflates wall time. Needed when the run is"
+                         " detached or piped (nothing can answer). Never guessed.")
+    ap.add_argument("--harness-note", default=None, metavar="ADDRESS_OR_NAME",
+                    help="With --harness yes: say WHICH harness shared the server. An"
+                         " address is best (e.g. --harness-note http://127.0.0.1:3080)"
+                         " - the bench then checks that address is really answering and"
+                         " records it; a name or path is recorded as said. Metadata"
+                         " only: the yes/no answer is what separates the two runs.")
     ap.add_argument("--set-harness", default=None, choices=["yes", "no"],
                     metavar="{yes,no}",
                     help="With --name: backfill the harness column of an existing run "
                          "in its _summary.json and rebuild the report (no server, "
                          "no regeneration)")
     args = ap.parse_args()
+    global _API_KEY
+    _API_KEY = args.api_key or os.environ.get("LCB_API_KEY")
 
     scen = {"code_generation": "codegen", "codegen": "codegen",
             "code_execution": "exec", "exec": "exec",
             "test_output_prediction": "top", "top": "top"}[args.scenario]
+
+    if args.probe_only and not args.speed_probe:
+        ap.error("--probe-only requires --speed-probe")
+    if args.harness_note and args.harness != "yes" and args.set_harness != "yes":
+        ap.error("--harness-note needs --harness yes (it says which harness it was)")
 
     if args.self_test:
         sys.exit(self_test())
@@ -1239,35 +1587,102 @@ def main():
         return
     if args.set_harness:
         if not args.name:
-            ap.error("--set-harness needs --name of an existing run, e.g. "
-                     "--set-harness yes --name qwen38-flash-next-q2")
+            ap.error("--set-harness needs --name of an existing run folder")
         sp = os.path.join("bench", slugify(args.name), "_summary.json")
         if not os.path.isfile(sp):
-            sys.exit(f"No summary for '{args.name}' at {sp} - nothing to annotate.")
+            known = sorted(d for d in os.listdir("bench")
+                           if os.path.isfile(os.path.join("bench", d, "_summary.json")))
+            sys.exit(f"No summary for '{args.name}' at {sp} - nothing to annotate."
+                     f" Runs you have: {', '.join(known) or '(none)'}")
         with open(sp, encoding="utf-8") as f:
             data = json.load(f)
         data["harness"] = args.set_harness
+        if args.harness_note:
+            data["harness_note"] = args.harness_note
+            now = probe_harness(args.harness_note)
+            save_harness_addr(args.harness_note, now)
+            if now:
+                now["note"] = ("checked now, after the run - not evidence about the"
+                               " run itself")
+                data["harness_probe"] = {"backfill": now}
+                print(f"     {now['target']} is"
+                      + (f" up now (HTTP {now['status']})" if now.get("reachable")
+                         else f" not answering ({now.get('error')})"))
+            else:
+                data["harness_probe"] = None
+            prev_src = data.get("harness_source")
+            data["harness_source"] = (prev_src + "; note set with --set-harness"
+                                      if prev_src else "backfilled with --set-harness")
+        else:
+            data["harness_source"] = "backfilled with --set-harness"
         with open(sp, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
-        print(f"{args.name}: harness = {args.set_harness}")
+        print(f"{slugify(args.name)}: harness = {args.set_harness}"
+              + (f", note = {args.harness_note}" if args.harness_note else ""))
         build_report()
         return
-    if not args.name:
-        ap.error("--name is required (unless --report-only): pick a short name for this "
-                 "model, e.g. --name qwen3-coder-next-iq4xs. Everything is stored in "
-                 "bench/<name>/, so re-running the same command resumes that run.")
 
-    slug = slugify(args.name)
-    run_dir = os.path.join("bench", slug)
-    os.makedirs(run_dir, exist_ok=True)
-
+    # ---- Who is being benched, and in which mode? Never guessed. -----------
     try:
-        server_models = requests.get(f"{args.base_url}/models", timeout=10).json()
+        server_models = requests.get(f"{args.base_url}/models", timeout=10,
+                                     headers=_auth_headers()).json()
         model_id = args.model or server_models["data"][0]["id"]
-        print(f"Server model: {model_id}")
-    except Exception:
-        model_id = args.model or args.name
-        print(f"Could not query {args.base_url}/models; using '{model_id}' as model id")
+    except Exception as exc:
+        model_id = args.model
+        print(f"Could not query {args.base_url}/models ({type(exc).__name__}):"
+              " pass --base-url and/or --model if this is not llama-server on :8080.")
+    if args.name:
+        base = slugify(args.name)
+    elif model_id:
+        base = ask_label(slugify(model_id))
+    else:
+        ap.error("the server reported no model id and no --name was given: pass"
+                 " --name <label> (and --model <id> if the server needs it).")
+
+    # Harness mode: --harness flag > asked out loud > already recorded > unknown.
+    prev_harness = recorded_harness(os.path.join("bench", base + SCEN_SUFFIX[scen]))
+    if args.harness:
+        harness_val, harness_note = args.harness, args.harness_note
+        harness_src = "--harness flag"
+    elif sys.stdin.isatty():
+        stem = base + SCEN_SUFFIX[scen]
+        folders = {mode: stem + HARNESS_SUFFIX[mode] for mode in HARNESS_SUFFIX}
+        folders[None] = stem
+        harness_val, harness_note, src = ask_harness_mode(prev_harness, folders)
+        harness_src = src
+    else:
+        harness_val, harness_note = prev_harness, None
+        harness_src = ("kept from an earlier phase of this run" if prev_harness
+                       else "not answered (detached run) - use --harness yes|no")
+    run_slug = resolve_run_dir(base, scen, harness_val)
+    run_dir = os.path.join("bench", run_slug)
+    resuming = os.path.isfile(os.path.join(run_dir, "generations.jsonl"))
+    os.makedirs(run_dir, exist_ok=True)
+    if harness_val == "yes" and not harness_note:
+        guess, label = harness_auto_note()
+        if guess:
+            harness_note = guess
+            harness_src += f"; address = {label}, override with --harness-note"
+    print(f"\nRun:     bench\\{run_slug}  ({'resuming' if resuming else 'new run'})")
+    print(f"Model:   {model_id or 'UNKNOWN - pass --model <server model id>'}")
+    print(f"Harness: {harness_val or 'unknown'} ({harness_src}"
+          + (f"; {harness_note}" if harness_note else "") + ")")
+    # The harness note may carry an address: check it is really there. Evidence
+    # only - it can never turn a "no" into a "yes" or the other way round.
+    harness_probe = {}
+    if harness_val == "yes":
+        start = probe_harness(harness_note)
+        save_harness_addr(harness_note, start)
+        if start:
+            harness_probe["start"] = start
+            print(f"           {start['target']} is"
+                  + (f" up (HTTP {start['status']}) - the agent is really there"
+                     if start.get("reachable") else
+                     f" NOT answering ({start.get('error')}) - your answer stands"))
+        else:
+            print("           no address for the harness, so nothing to check: answer"
+                  " the which-harness question with one (Enter takes choice 1), or"
+                  " pass --harness-note http://127.0.0.1:3080")
 
     if args.speed_probe:
         sp_path = os.path.join(run_dir, "speed_probe.json")
@@ -1275,17 +1690,22 @@ def main():
             print(f"Speed probe already recorded: {open(sp_path, encoding='utf-8').read().strip()}")
         else:
             print("Running server speed probe (may wait behind a generation)...")
-            probe = speed_probe(args.base_url, model_id)
+            try:
+                probe = speed_probe(args.base_url, model_id)
+            except Exception as exc:
+                sys.exit(f"Speed probe failed against {args.base_url}"
+                         f" ({type(exc).__name__}): is the server up? For anything"
+                         " that is not llama-server on :8080 pass --base-url (plus"
+                         " --model and --api-key if that server wants them).")
             probe["model"] = model_id
             with open(sp_path, "w", encoding="utf-8") as f:
                 json.dump(probe, f, indent=2)
             print(f"Speed probe: {probe}")
 
     if args.probe_only:
-        if not args.speed_probe:
-            ap.error("--probe-only requires --speed-probe")
-        print("--probe-only: stopping here, nothing generated. Use the same --name for "
-              "the real run; the saved probe is reused (bench/<name>/speed_probe.json).")
+        print("--probe-only: stopping here, nothing generated. The same run resumed"
+              " (same label, same harness answer) reuses the saved probe"
+              " (bench/<run>/speed_probe.json).")
         return
 
     sample_file = os.path.join(run_dir, "sample_ids.json")
@@ -1404,7 +1824,14 @@ def main():
             qid = entry["question_id"]
             if qid in evaluated:
                 continue
-            jobs.append((qid, probs_by_id[qid].get("eval_payload", probs_by_id[qid]["in_out"]),
+            # codegen problems carry "in_out"; the fast scenarios only "eval_payload".
+            # (Writing .get("eval_payload", probs[..]["in_out"]) raises on the fast
+            # scenarios, because the fallback argument is evaluated eagerly.)
+            payload = probs_by_id[qid].get("eval_payload") or probs_by_id[qid].get("in_out")
+            if payload is None:
+                sys.exit(f"Internal error: problem {qid} has no eval payload "
+                         f"(keys: {sorted(probs_by_id[qid])})")
+            jobs.append((qid, payload,
                          entry["code_list"], args.timeout, scen))
 
     if jobs:
@@ -1490,22 +1917,22 @@ def main():
     decode_tps = round(pnn * 1000.0 / pnm, 1) if pnm and pnn else probe.get("decode_tokens_per_sec")
     if decode_tps is None:
         decode_tps = round(gen_tok_total / gen_secs_total, 1) if gen_secs_total else None
-    # harness provenance: explicit flag wins, then whatever an earlier phase of
-    # this same run already recorded (a later --skip-generate re-score runs from
-    # a different shell and must not silently flip it), then env auto-detection.
     summary_path = os.path.join(run_dir, "_summary.json")
-    prev_harness = None
-    if os.path.exists(summary_path):
-        try:
-            with open(summary_path, encoding="utf-8") as f:
-                prev_harness = json.load(f).get("harness")
-        except Exception:
-            prev_harness = None
-    harness_val = args.harness or prev_harness or harness_detected()
+    if harness_val == "yes":
+        end = probe_harness(harness_note)
+        if end:
+            harness_probe["end"] = end
+            print(f"End of run: {end['target']} is"
+                  + (f" still up (HTTP {end['status']})" if end.get("reachable") else
+                     f" not answering anymore ({end.get('error')})"))
     summary = {
-        "name": args.name,
+        "name": run_slug,
+        "model": model_id,
         "server_model": model_id,
-        "harness": harness_val,
+        "harness": harness_val or "unknown",
+        "harness_note": harness_note,
+        "harness_source": harness_src,
+        "harness_probe": harness_probe or None,
         "generated_at": dt.datetime.now().isoformat(timespec="seconds"),
         "config": {
             "n": args.n, "temperature": args.temperature, "top_p": args.top_p,
@@ -1560,6 +1987,7 @@ def main():
         print("No evaluated problems; summary not written (probe saved if run).")
 
     print("\n=== Results ===")
+    print(f"   model: {model_id or 'unknown'}   run: bench\\{run_slug}")
     if not per_problem:
         print("Nothing evaluated yet.")
     if summary.get("score") is not None:
@@ -1590,13 +2018,16 @@ def main():
         print(f"      when-complete: {gs['pass_rate_when_not_truncated']}% of the "
               f"{gs.get('problems_not_truncated')}/{gs.get('generated')} answers that fit "
               f"in the token budget passed (skill signal, budget aside)")
-    if args.harness:
-        hn = ""
-    elif prev_harness:
-        hn = " (kept from an earlier phase of this run; --harness yes|no to change)"
-    else:
-        hn = " (auto-detected from DSH_* env vars; --harness yes|no to override)"
-    print(f"   harness: {harness_val}{hn}")
+    probe_parts = []
+    for key, where in (("start", "at start"), ("end", "at end")):
+        p = harness_probe.get(key)
+        if p:
+            probe_parts.append(("up" if p.get("reachable")
+                                else f"not answering ({p.get('error')})")
+                               + f" {where}")
+    print(f"   harness: {harness_val or 'unknown'} ({harness_src}"
+          + (f"; {harness_note}" if harness_note else "")
+          + (f" - {', '.join(probe_parts)}" if probe_parts else "") + ")")
     print(f"Summary: {summary_path}\n")
 
     build_report()
@@ -1620,7 +2051,7 @@ def build_report():
         return
     rows.sort(key=lambda r: (r.get("config", {}).get("scenario", ""),
                              -(r.get("score") or 0.0)))
-    headers = ["model", "harness", "scenario", "SCORE", "problems", "n", "cap",
+    headers = ["run", "model", "harness", "test", "scenario", "SCORE", "problems", "n", "cap",
                "trunc%", "when-complete", "easy", "medium", "hard", "prefill-tok/s",
                "gen-tok/s", "gen-min", "sample", "date"]
     table = []
@@ -1636,8 +2067,11 @@ def build_report():
 
         total = sum(r.get("counts", {}).values())
         decode = sp.get("decode_tokens_per_sec") or sp.get("mean_tokens_per_sec")
+        scen = cfg.get("scenario", "codegen")
         table.append([
-            r["name"], r.get("harness") or "unknown", cfg.get("scenario", "codegen"),
+            r["name"], r.get("model") or r.get("server_model") or "-",
+            r.get("harness") or "unknown",
+            "fast" if scen in ("exec", "top") else "slow", scen,
             r.get("score"), total, cfg.get("n"),
             cfg.get("max_tokens"),
             gs.get("truncated_pct"),
@@ -1660,25 +2094,43 @@ def build_report():
     text = "\n".join(out)
     print("LiveCodeBench comparison:")
     print(text)
-    print("\nSCORE = pass@1 % (the single number: higher is better). when-complete ="
-          "\npass rate over answers that did not hit the token cap. harness = was the"
-          "\ndeepseek-harness/agent chat open on the same server for that run (its"
-          "\nrequests queue behind the benchmark, inflating gen-min); unknown = run"
-          "\nfrom before this column existed, set it with --set-harness. Rows are"
-          "\ndirectly comparable only when scenario / problems / n / cap / sample"
-          "\ncolumns match.")
+    print("\nSCORE = pass@1 % (the single number: higher is better). run = bench folder"
+          "\nlabel, model = the model id the server reported for that run. when-complete ="
+          "\npass rate over answers that did not hit the token cap. test = slow"
+          "\n(code_generation, the main scenario) or fast (code_execution /"
+          "\ntest_output_prediction - narrower skills, much quicker, comparable"
+          "\nacross models but only against the same scenario's rows). harness = did an"
+          "\nagent chat share the model server for that run; every run answers that"
+          "\nquestion out loud (--harness yes|no when detached), it is never guessed,"
+          "\nbecause those requests queue behind the benchmark and inflate"
+          "\ngen-min. It never means the agent answered, and nothing is routed through"
+          "\nit: no harness sees a problem, so both rows are the raw model. unknown ="
+          "\nnobody answered (older run, or a detached run without --harness) - set it"
+          "\nwith --set-harness. Rows are directly comparable only when test /"
+          "\nscenario / problems / n / cap / sample columns match.")
     os.makedirs("bench", exist_ok=True)
     with open("bench/report.md", "w", encoding="utf-8") as f:
         f.write("# LiveCodeBench model comparison\n\n```\n" + text + "\n```\n\n"
                 "SCORE = pass@1 % on the sampled problem set - the single headline value.\n"
+                "run = bench folder label; model = the model id the server reported for\n"
+                "that run, so two rows for the same model are always the same model.\n"
                 "prefill-tok/s = prompt-reading (lecture) speed; gen-tok/s = generation speed.\n"
                 "cap = per-answer max_tokens (thinking budget); trunc% = share of answers that hit it.\n"
                 "when-complete = pass rate over the answers that did NOT hit the cap (skill signal).\n"
-                "harness = was the deepseek-harness/agent chat open on the same model server\n"
-                "during that run: its requests queue behind the benchmark, so gen-min (wall time)\n"
-                "of harness=yes rows is inflated; unknown = run predates this column, backfill\n"
-                "it with --set-harness yes|no --name <run>.\n"
-                "Rows are directly comparable only when scenario / problems / n / cap /\n"
+                "test = slow (code_generation, the main scenario) or fast (code_execution /\n"
+                "test_output_prediction): fast rows measure narrower skills, run much quicker,\n"
+                "and compare across models only against the same scenario's own rows.\n"
+                "harness = did an agent chat share the model server during that run: every\n"
+                "run answers that question out loud (never guessed), because those requests\n"
+                "queue behind the benchmark and inflate gen-min (wall time) of harness=yes\n"
+                "rows. It never means the agent answered, and nothing is routed\n"
+                "through it: no harness sees a problem, so every row is the raw model\n"
+                "answering for itself. A harness address given in the note is pinged at\n"
+                "the start and end of the run and saved in that run's _summary.json as\n"
+                "harness_probe; a name or path is stored as text only.\n"
+                "unknown = nobody answered (older run, or a detached run started\n"
+                "without --harness) - backfill it with --set-harness yes|no --name <run>.\n"
+                "Rows are directly comparable only when test / scenario / problems / n / cap /\n"
                 "sample columns match.\n")
     with open("bench/report.csv", "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)

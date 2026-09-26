@@ -25,6 +25,11 @@ Start the server (your usual command), then run the bench. In these examples
 `python` means **`.venv\Scripts\python.exe`** (the venv in this repo). With
 `-np 1` keep `--workers 1` — more workers don't add throughput on a single slot.
 
+`--name` is optional (the bench otherwise asks, defaulting to the model id the
+server reports). Answer its harness question `1` in your own window; run the same
+line from an agent chat with `--harness yes` appended to get the comparable second
+row. Each answer writes its own folder (`…-noharness` / `…-harness`).
+
 ```
 # Qwen3.8-Flash-Next Q2_K_XL (131k ctx)
 llama-server -hf unsloth/Qwen3.8-Flash-Next-GGUF:UD-Q2_K_XL -ncmoe 45 --load-mode none --no-mmproj -ctk q8_0 -ctv q8_0 -fit off -kvu -np 1 --min-p 0 --override-kv "qwen4exp.attention.indexer.top_k=int:4096" --temp 1 --top-k 20 -c 131072 -t 10 -fa on --no-context-shift
@@ -73,6 +78,13 @@ speed: decode 18.3 tok/s, prefill/lecture 365.8 tok/s
 
 ```
 --scenario NAME           code_generation (default) | code_execution | test_output_prediction
+--base-url URL            which OpenAI-compatible server to talk to (default
+                          http://127.0.0.1:8080/v1; LM Studio :1234, vLLM :8000,
+                          Ollama :11434)
+--model ID                model id to request (default: the first one the server
+                          reports, which is also where the run label comes from)
+--api-key KEY             Bearer token, for servers that demand one (also
+                          LCB_API_KEY); llama-server needs none
 --exec-cot                step-by-step examples for code_execution scoring prompt
 --speed-probe             measure prefill + decode tok/s with 2 extra requests
 --probe-only              with --speed-probe: measure tok/s and exit (no
@@ -89,11 +101,30 @@ speed: decode 18.3 tok/s, prefill/lecture 365.8 tok/s
 --report-only             rebuild the comparison table
 --extra-body JSON         e.g. '{"chat_template_kwargs":{"enable_thinking":false}}'
 --self-test               verify the evaluator on your machine (no server needed)
---harness yes|no          record whether the deepseek-harness/agent chat was open on
-                          the same server while the run generated (report column
-                          "harness": wall time of those rows is queue-inflated).
-                          Default: auto-detected from DSH_* env vars.
---set-harness yes|no      backfill that column for an existing run (with --name)
+--harness yes|no          answer the run's harness question up front: was an agent
+                          chat open on the same server while it generated? That
+                          queueing inflates wall time (report column "harness"),
+                          never tok/s. Interactive runs are asked (press Enter = the
+                          model id for the name question; Enter = choice [1] for the
+                          which-harness one); the bench never guesses. Detached/piped
+                          runs must use this flag - and "yes" alone also fills in the
+                          address it knows, from DSH_WEB_URL or from what your earlier
+                          runs used.
+--harness-note "ADDRESS"  say *which* harness it was, when it is not the one it offers
+                          (in a window that is choice [2]). An address
+                          (http://127.0.0.1:3080) gets
+                          pinged at the start and end of the run and what it answers
+                          is stored (harness_probe in _summary.json) as evidence the
+                          agent was really there. Nothing is ever routed through it:
+                          problems go to --base-url only. A name or a path is stored
+                          as text only - nothing in it is opened or run - and remote
+                          hosts are never probed. Metadata either way: the yes/no
+                          answer is what separates the runs, and no harness ever
+                          answers a problem. An address you use is remembered in
+                          bench\harness-address.json so the next run can offer it.
+--set-harness yes|no      backfill that column for an existing run (with --name;
+                          --harness-note can go along, it then pings once and marks
+                          the check as "after the run")
 ```
 
 ## Fair-comparison tips
@@ -138,11 +169,13 @@ speed: decode 18.3 tok/s, prefill/lecture 365.8 tok/s
 
 Prompts, answer extraction and grading are ports of the official
 `lcb_runner` code for each scenario, so the three SCOREs are "official-style".
-Each scenario gets its own run directory by choosing a distinct `--name`, e.g.
+Each scenario keeps its own run directory automatically — the label gets `-exec`
+or `-top` appended (plus the harness suffix) — so the fast runs never disturb the
+code_generation run:
 
 ```
-python lcb_bench.py --name qwen38-flash-next-q2-exec --scenario code_execution --speed-probe --random-sample 100 --workers 1 --max-tokens 16384 --eval-workers 8
-python lcb_bench.py --name qwen38-flash-next-q2-top  --scenario test_output_prediction --speed-probe --random-sample 100 --workers 1 --max-tokens 16384 --eval-workers 8
+python lcb_bench.py --scenario code_execution --speed-probe --random-sample 100 --workers 1 --max-tokens 16384 --eval-workers 8
+python lcb_bench.py --scenario test_output_prediction --speed-probe --random-sample 100 --workers 1 --max-tokens 16384 --eval-workers 8
 ```
 
 The two extra scenarios are much shorter than code_generation (most answers

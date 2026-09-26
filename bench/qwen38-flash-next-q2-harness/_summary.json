@@ -1,5 +1,5 @@
 {
-  "name": "qwen38-flash-next-q2",
+  "name": "qwen38-flash-next-q2-harness",
   "server_model": "unsloth/Qwen3.8-Flash-Next-GGUF:UD-Q2_K_XL",
   "harness": "yes",
   "generated_at": "2026-09-23T19:33:36",
@@ -167,5 +167,6 @@
     "arc183_b": 0.0,
     "arc194_c": 0.0,
     "arc195_c": 0.0
-  }
+  },
+  "harness_source": "backfilled: run made with the agent chat open, before the question existed"
 }

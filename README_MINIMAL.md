@@ -5,6 +5,25 @@ LM Studio / vLLM / Ollama too. You end up with one number per model —
 **SCORE** = % of real competitive-programming problems solved — plus speeds, and
 a table comparing every model you have tested.
 
+Every run asks you two things out loud, because it refuses to guess them:
+
+* **which model is this?** — press Enter and the label comes from the server's own
+  model id, so each row names the model rather than a placeholder.
+* **harness: yes or no?** — is an agent chat sharing the model server while the
+  bench runs? Answer `1` (no) in your own PowerShell window; from the agent chat,
+  where nothing can answer, say it up front with `--harness yes`. If you say yes it
+  asks *which* one, with **choice 1 = the harness address it knows** — the agent that
+  started this window, or the address your earlier runs used — so **Enter is enough**
+  and nothing has to be typed; choice `2` takes a new address or a name. The
+  bench pings the address at the start and end of the run so the row carries evidence
+  instead of a claim. The agent never takes the test: the model always answers on its
+  own — the bench only ever talks to your model server — so `harness = yes` means
+  "someone else was sharing the server", never "this model was helped".
+
+The answers decide the run folder (`bench\<model>-noharness\`, `bench\<model>-harness\`)
+and the report rows, so one model produces a clean, comparable pair of rows. Run the
+same line twice — once each way — and you have both.
+
 Shorter still, copy-paste only: [EXTRA_MINIMAL_BENCHMARK.md](EXTRA_MINIMAL_BENCHMARK.md).
 Long versions (only if you want the detail): [MINIMAL_BENCHMARK.md](MINIMAL_BENCHMARK.md),
 [BENCHMARK_GUIDE.md](BENCHMARK_GUIDE.md).
@@ -45,7 +64,7 @@ server or port? Add `--base-url` to every bench command:
 |---|---|
 | llama-server on 8080 (default) | nothing |
 | LM Studio | `--base-url http://localhost:1234/v1` |
-| vLLM | `--base-url http://localhost:8000/v1` (+ `--api-key KEY` if it demands one) |
+| vLLM | `--base-url http://localhost:8000/v1` (+ `--api-key KEY` if it demands one; `LCB_API_KEY` works too) |
 | Ollama (OpenAI shim) | `--base-url http://localhost:11434/v1` |
 
 **The one rule:** the server context `-c` must fit prompt (~4k) **plus** the
@@ -56,52 +75,72 @@ answer budget `--max-tokens`. `-c 65536` or more → `--max-tokens 16384`;
 ## Step 2 (~2 min): can it answer, and how fast?
 
 ```powershell
-.venv\Scripts\python.exe lcb_bench.py --name MYMODEL --speed-probe --probe-only
+.venv\Scripts\python.exe lcb_bench.py --speed-probe --probe-only
 ```
 
-`MYMODEL` is your own short label — it becomes `bench\MYMODEL\` and the report
-row. No problems yet: this fires 2 requests and prints prefill/decode tok/s,
-saved for reuse. Rough runtime: `hours ≈ problems × 7200 ÷ decode_tok_s ÷ 3600`
-(7200 = what a thinking model burns per problem; plain models use far less).
+It asks for a **label** (just press Enter: it takes the model id from the server and
+shortens it), then asks the **harness question** — answer `1` in this window. No problems
+yet: this fires 2 requests and prints prefill/decode tok/s, saved for reuse. Rough
+runtime: `hours ≈ problems × 7200 ÷ decode_tok_s ÷ 3600` (7200 = what a thinking
+model burns per problem; plain models use far less). Want your own shorter label?
+Type it at the prompt, or pass `--name MYMODEL` to skip the asking.
+
 
 ## Step 3 (~10–40 min): does the whole pipeline score it?
 
 ```powershell
-.venv\Scripts\python.exe lcb_bench.py --name MYMODEL-smoke --limit 3 --max-tokens 16384 --eval-workers 8
+.venv\Scripts\python.exe lcb_bench.py --name smoke --harness no --limit 3 --max-tokens 16384 --eval-workers 8
 ```
 
 Only 3 problems, so the SCORE here is noise — you are checking plumbing
-(answers come out, code gets extracted, the grader runs). Clean up after:
-`Remove-Item -Recurse -Force bench\MYMODEL-smoke`.
+(answers come out, code gets extracted, the grader runs). The throwaway `--name`
+plus `--harness no` keeps it out of your real model's folders. Clean up after:
+`Remove-Item -Recurse -Force bench\smoke-noharness`.
 
 ## Step 4 (hours, resumable): the real score
 
 ```powershell
-.venv\Scripts\python.exe lcb_bench.py --name MYMODEL --speed-probe --random-sample 100 --workers 1 --max-tokens 16384 --eval-workers 8
+.venv\Scripts\python.exe lcb_bench.py --speed-probe --random-sample 100 --workers 1 --max-tokens 16384 --eval-workers 8
 ```
 
-Same 100 problems for every model → comparable. Ctrl+C, a crash or a server
-restart are cheap: **rerun the exact same command**, it skips what is finished.
-Keep the flags you started with (they are what gets recorded).
+**Q1** (the name): press Enter to take the model id the server reports, or type your
+own label — a bare `1`/`2`/`3` is refused, those are answers to Q2. **Q2** (harness):
+answer `1`, because this window is yours and nothing else is on the server (answer `2`
+somewhere else and it asks *which* harness, with the address it knows on the `[1]`
+line — the agent that started the window, or the one your earlier runs used, so Enter
+is enough; `[2]` takes a new address or a name). Same 100
+problems for every model → comparable. Ctrl+C, a crash or a server restart are cheap:
+**rerun the exact same command**, it skips what is finished. Ctrl+C at one of these
+questions stops before anything is started, with advice instead of a traceback. Keep
+the flags you started with (they are what gets recorded).
 
-12 h is long, so detach it — close the window, it keeps running:
+12 h is long, so detach it — close the window, it keeps running. A detached run
+cannot answer questions, so say both answers in the command line instead
+(`--harness no` here; add your own `--name` if you want a specific label):
 
 ```powershell
 Start-Process -FilePath ".venv\Scripts\python.exe" -WorkingDirectory "B:\repos\MyProjects\_LiveCodeBench" `
-  -RedirectStandardOutput "bench\MYMODEL.out.log" -RedirectStandardError "bench\MYMODEL.err.log" `
-  -ArgumentList "--name","MYMODEL","--speed-probe","--random-sample","100","--workers","1","--max-tokens","16384","--eval-workers","8"
-Get-Content bench\MYMODEL.out.log -Wait -Tail 20
+  -RedirectStandardOutput "bench\long-run.out.log" -RedirectStandardError "bench\long-run.err.log" `
+  -ArgumentList "--speed-probe","--random-sample","100","--workers","1","--max-tokens","16384","--eval-workers","8","--harness","no"
+Get-Content bench\long-run.out.log -Wait -Tail 20
 ```
 
-What it prints at the end:
+What it prints at the end (your model's id and folder appear in the first lines):
 
 ```
-SCORE: 73.0%  (100 problems, 1 sample(s) each) [sample d46433bd9f02]
-  pass@1: 73.00%   easy: 96.77% (31)   medium: 97.22% (36)   hard: 24.24% (33)
-  speed: decode 18.3 tok/s, prefill/lecture 365.8 tok/s
-  gen: 29/100 hit the 16384-token cap (truncated = auto-fail), 0 failed request(s)
-     when-complete: 98.6% of the 71/100 answers that fit in the budget passed
-   harness: no
+=== Results ===
+   model: unsloth/Qwen3.8-Flash-Next-GGUF:UD-Q2_K_XL   run: bench\qwen38-flash-next-q2-noharness
+SCORE: 69.0%  (100 problems, 1 sample(s) each) [sample d46433bd9f02]
+  pass@1: 69.00%
+     easy: 100.00%  (31 problems)
+   medium: 86.11%  (36 problems)
+     hard: 21.21%  (33 problems)
+   speed: decode 18.1 tok/s, prefill/lecture 243.7 tok/s
+         avg 666.0 prompt + 7423.0 completion tokens per problem, 411.7s/problem wall time
+   gen: 31/100 hit the 16384-token cap (truncated = auto-fail), 0 failed request(s) (rerun the same command to retry them)
+      when-complete: 97.1% of the 69/100 answers that fit in the token budget passed (skill signal, budget aside)
+   harness: no (you answered)
+Summary: bench\qwen38-flash-next-q2-noharness\_summary.json
 ```
 
 `SCORE` is the headline. `trunc%` big + `when-complete` high = the model can
@@ -117,48 +156,67 @@ rule) and keep the same cap on every row you compare.
 → `bench\report.md` (and `report.csv`), best row first, one row per run:
 
 ```
-model                 harness  scenario  SCORE  problems  n  cap    trunc%  when-complete ...
-qwen38-flash-next-q2  yes      codegen   73.0   100       1  16384  29.0    98.6
+run                             model                                       harness  test  scenario  SCORE  problems  n  cap    trunc%  when-complete ...
+qwen38-flash-next-q2-harness    unsloth/Qwen3.8-Flash-Next-GGUF:UD-Q2_K_XL  yes      slow  codegen   73.0   100       1  16384  29.0    98.6
+qwen38-flash-next-q2-noharness  unsloth/Qwen3.8-Flash-Next-GGUF:UD-Q2_K_XL  no       slow  codegen   69.0   100       1  16384  31.0    97.1
 ```
 
-**`harness`** says whether that run happened while the deepseek-harness chat was
-open on the same server — those rows queue behind the agent, so their wall time
-(`gen-min`) is inflated. Runs made before this column exist show `unknown`;
-label one:
+**`run`** is the folder label, **`model`** the model id the server reported for
+that run, **`harness`** the answer that run gave: `yes` means an agent chat was
+sharing the server, so those requests queued behind the chat and the wall time
+(`gen-min`) is inflated — tok/s is not. `unknown` means nobody answered (a run made
+before the question existed, or a detached run without `--harness`); answer it later
+with the folder name:
 
 ```powershell
-.venv\Scripts\python.exe lcb_bench.py --set-harness no --name MYMODEL
+.venv\Scripts\python.exe lcb_bench.py --set-harness no --name qwen38-flash-next-q2-noharness
 ```
 
-Rows are comparable only when `scenario` / `problems` / `n` / `cap` / `sample`
-match. To re-grade stored answers without regenerating:
-`--name MYMODEL --skip-generate --skip-eval --random-sample 100`.
+Rows are comparable only when `test` / `scenario` / `problems` / `n` / `cap` / `sample`
+match (`test`: `slow` = main run, `fast` = the two optional quick tests, see
+[EXTRA_MINIMAL_BENCHMARK.md](EXTRA_MINIMAL_BENCHMARK.md)). To
+re-grade stored answers without regenerating:
+`--name RUN-NAME --skip-generate --skip-eval --random-sample 100`.
 
 ## With the harness or without it
 
-**No harness (recommended — gets `harness = no` automatically).** Run the steps
-above from your own PowerShell and keep the chat closed while it generates.
-Nothing else may hit the server or the speed columns lie. You can switch models
-freely: stop the server, start another, use a new `--name`.
+A **harness** is an agent chat (deepseek-harness, Cursor, Codex CLI, Claude Code,
+an IDE copilot…) that talks to the same model server you are benchmarking. Its
+requests share the single `-np 1` slot, so they queue — the score stands, but wall
+time (`gen-min`) inflates. The bench therefore refuses to guess which situation a
+run is in, and asks instead. That is also how you can bench a model nobody thought
+to pre-register: it never needs to know your harness, only which run you mean.
 
-**With the harness open (`harness = yes`).** Same commands work from inside an
-agent chat, but only for the model that chat is running on — restarting that
-server kills the chat driving the run, so you cannot test other models this way.
-It is also slower: `-np 1` means one slot, chat and benchmark queue behind each
-other. Auto-detection only looks at the `DSH_*` env vars of the shell that
-started the bench, so a run launched from your own PowerShell while the chat is
-open needs the flag spelled out:
+**Without harness (the comparable baseline).** Run the steps above from your own
+PowerShell, chat closed, and answer `1`. Nothing else may hit the server or the
+speed columns lie. Switch models freely: stop the server, start another, and the
+next run labels itself from that server.
+
+**With the harness open (`harness = yes`).** The same commands work from inside an
+agent chat, but only for the model that chat runs on — restarting that server kills
+the chat driving the run. Expect it to be slower: `-np 1` means one slot, so chat
+and benchmark queue behind each other. Nothing can answer the question in that
+shell, so say it in the command line. The address is not something you have to
+remember: it comes from that shell's own environment, or from what your earlier runs
+used, so this is all you add:
 
 ```powershell
-.venv\Scripts\python.exe lcb_bench.py --name MYMODEL --harness yes --speed-probe --random-sample 100 --workers 1 --max-tokens 16384 --eval-workers 8
+.venv\Scripts\python.exe lcb_bench.py --speed-probe --random-sample 100 --workers 1 --max-tokens 16384 --eval-workers 8 --harness yes
 ```
+
+Add `--harness-note "http://host:port"` only when the agent you mean is not the one it
+offers — in a window's questions that is choice `[2]`.
+
+That is exactly one command per test, twice: once answered in your window (`1`),
+once declared from the chat. Each answer gets its own folder and its own report row
+(`...-noharness`, `...-harness`), so the two never overwrite each other.
 
 ## Flags you may actually need
 
 | Flag | Why |
 |---|---|
-| `--name` | required: run folder + report row + resume key |
-| `--base-url` / `--api-key` / `--model` | server that is not llama-server on 8080 |
+| `--name` | optional: your own label instead of the one asked for (run folder + report row + resume key) |
+| `--base-url` / `--api-key` / `--model` | any server that is not llama-server on 8080 (LM Studio, vLLM, Ollama, another machine). `--api-key` sends `Authorization: Bearer`; `LCB_API_KEY` works too |
 | `--max-tokens` | thinking + answer budget (16384 default); truncated = auto-fail |
 | `--limit N` | first N problems only (quick check) |
 | `--workers N` | concurrent requests; 1 for a `-np 1` server, = llama-server `--parallel` otherwise |
@@ -166,8 +224,10 @@ open needs the flag spelled out:
 | `--extra-body JSON` | model-specific request extras, e.g. thinking off: `'{"chat_template_kwargs":{"enable_thinking":false}}'` (flag name differs per family) |
 | `--difficulty easy\|medium\|hard` | subset |
 | `--skip-generate` / `--skip-eval` | re-grade what you have / generate only |
-| `--harness yes\|no`, `--set-harness` | report column above |
-| `--scenario code_execution\|test_output_prediction` | the two optional extra datasets (much quicker, narrower skills) |
+| `--harness yes\|no` | answer the harness question up front — required for detached / piped runs, where nothing can be asked. `yes` also fills in the harness address it knows (this shell's own agent via `DSH_WEB_URL`, else the one your earlier runs used) and pings it |
+| `--harness-note "ADDRESS"` | only when the harness is *not* the one it offers: say which it was (address preferred). The bench pings an address at the start and end of the run and saves the result as evidence in `_summary.json` (`harness_probe`). A name or path is stored as text only, nothing is opened. An address you use is remembered in `bench\harness-address.json`, so the next run offers it as choice `[1]` |
+| `--set-harness yes\|no` | backfill the answer for a run that never gave one (`--name` = its folder) |
+| `--scenario code_execution\|test_output_prediction` | the two optional fast tests (much quicker, narrower skills; the report flags them `test = fast`; each scenario keeps its own folder `-exec` / `-top`) |
 
 ## When something is wrong
 
@@ -176,5 +236,6 @@ open needs the flag spelled out:
 | `WinError 5 Access is denied` | you are in an agent/IDE sandbox — use a normal PowerShell |
 | `ConnectionError` / refused | server not up, or wrong `--base-url` |
 | generations stop mid-run | server restarted or OOM — rerun the same command, it resumes |
-| score 0, everything fails | check answers in `bench\MYMODEL\generations.jsonl`; try `--extra-body` to disable thinking |
+| score 0, everything fails | check answers in `bench\<run>\generations.jsonl`; try `--extra-body` to disable thinking |
 | `trunc%` high | raise `--max-tokens` (respect `-c`), keep the cap identical across models |
+| It asks the label / harness question where you cannot type | Fine in a normal PowerShell (it answers); detached, piped or agent shells cannot, so pass `--name LABEL` and `--harness yes\|no` in the command. A run that answers nothing is recorded `harness = unknown` |

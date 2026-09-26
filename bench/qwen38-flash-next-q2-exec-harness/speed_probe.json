@@ -1,0 +1,5 @@
+{
+  "prefill_tokens_per_sec": 324.1,
+  "decode_tokens_per_sec": 19.3,
+  "model": "unsloth/Qwen3.8-Flash-Next-GGUF:UD-Q2_K_XL"
+}
