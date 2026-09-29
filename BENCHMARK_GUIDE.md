@@ -26,26 +26,33 @@ Start the server (your usual command), then run the bench. In these examples
 `-np 1` keep `--workers 1` — more workers don't add throughput on a single slot.
 
 `--name` is optional (the bench otherwise asks, defaulting to the model id the
-server reports). Answer its harness question `1` in your own window; run the same
-line from an agent chat with `--harness yes` appended to get the comparable second
-row. Each answer writes its own folder (`…-noharness` / `…-harness`).
+server reports). `--both` in the lines above makes one command answer the harness
+question both ways on identical problems — pass 1 with nothing else on the model
+server, pass 2 with the agent chat working — and prints the pair together. Without it
+each run answers once and writes one row: answer `1` in your own window, or run the
+same line from an agent chat with `--harness yes` appended. Each answer writes its own
+folder (`…-noharness` / `…-harness`). `--random-sample 100 --hardest 25` keeps the run at
+exactly 100 problems while spending 25 of its slots on the hardest the release has (the
+rest spread evenly over easy/medium/hard), so a strong model cannot sit at a meaningless
+100% off an easy-weighted sample; the tier gets its own `hardest` score line and report
+column.
 
 ```
 # Qwen3.8-Flash-Next Q2_K_XL (131k ctx)
 llama-server -hf unsloth/Qwen3.8-Flash-Next-GGUF:UD-Q2_K_XL -ncmoe 45 --load-mode none --no-mmproj -ctk q8_0 -ctv q8_0 -fit off -kvu -np 1 --min-p 0 --override-kv "qwen4exp.attention.indexer.top_k=int:4096" --temp 1 --top-k 20 -c 131072 -t 10 -fa on --no-context-shift
-python lcb_bench.py --name qwen38-flash-next-q2 --speed-probe --random-sample 100 --workers 1 --max-tokens 16384 --eval-workers 8
+python lcb_bench.py --name qwen38-flash-next-q2 --speed-probe --random-sample 100 --hardest 25 --workers 1 --max-tokens 16384 --eval-workers 8 --both
 
 # Qwen3.8-Flash-Next IQ4_XS
 llama-server -hf unsloth/Qwen3.8-Flash-Next-GGUF:UD-IQ4_XS -cmoe --load-mode none --no-mmproj -ctk q8_0 -ctv q8_0 -fit off -kvu -np 1 --min-p 0 --override-kv "qwen4exp.attention.indexer.top_k=int:4096" --temp 1 --top-k 20 -c 65536 -t 12 -fa on --no-context-shift
-python lcb_bench.py --name qwen38-flash-next-iq4xs --speed-probe --random-sample 100 --workers 1 --max-tokens 16384 --eval-workers 8
+python lcb_bench.py --name qwen38-flash-next-iq4xs --speed-probe --random-sample 100 --hardest 25 --workers 1 --max-tokens 16384 --eval-workers 8 --both
 
 # Qwen3.8-Flash-Next Q4_K_XL
 llama-server -hf unsloth/Qwen3.8-Flash-Next-GGUF:UD-Q4_K_XL -cmoe --load-mode none --no-mmproj -ctk q8_0 -ctv q8_0 -fit off -kvu -np 1 --min-p 0 --override-kv "qwen4exp.attention.indexer.top_k=int:4096" --temp 1 --top-k 20 -c 131072 -t 10 -fa on
-python lcb_bench.py --name qwen38-flash-next-q4kxl --speed-probe --random-sample 100 --workers 1 --max-tokens 16384 --eval-workers 8
+python lcb_bench.py --name qwen38-flash-next-q4kxl --speed-probe --random-sample 100 --hardest 25 --workers 1 --max-tokens 16384 --eval-workers 8 --both
 
 # Qwen3-Coder-Next IQ4_XS  (32k ctx -> use --max-tokens 12288, see context note)
 llama-server -hf unsloth/Qwen3-Coder-Next-GGUF:UD-IQ4_XS -cmoe --load-mode none --no-mmproj -ctk q8_0 -ctv q8_0 -fit off -kvu -np 1 --temp 0.7 --top-k 20 --top-p 0.8 -c 32768 -t 12 -fa on --no-context-shift -ub 2048
-python lcb_bench.py --name qwen3-coder-next-iq4xs --speed-probe --random-sample 100 --workers 1 --max-tokens 12288 --eval-workers 8
+python lcb_bench.py --name qwen3-coder-next-iq4xs --speed-probe --random-sample 100 --hardest 25 --workers 1 --max-tokens 12288 --eval-workers 8 --both
 ```
 
 Then: `python lcb_bench.py --report-only` → comparison table (`bench/report.md`).
@@ -98,7 +105,28 @@ speed: decode 18.3 tok/s, prefill/lecture 365.8 tok/s
 --extractor auto|official auto (default) also handles truncated/fenceless output
 --skip-generate           re-score existing generations only
 --skip-eval               generation only
---report-only             rebuild the comparison table
+--hardest N               spend N slots of the run on the hardest problems the release
+                          has (hard first, then most test cases, then newest). With
+                          --random-sample 100 the run stays exactly 100: 25 hardest +
+                          the rest spread evenly over easy/medium/hard. Alone the run IS
+                          those N; with --limit it is ignored. Changes the sample hash,
+                          so old rows stay separate. A sample with too little hard in it
+                          lets a good model print 100% and says nothing
+--both                    one command, both rows: the scenario runs twice on identical
+                          problems - pass 1 answered no (nothing else on the model
+                          server), pass 2 answered yes (the agent chat working). Asked
+                          once up front; needs a window to answer in, or give
+                          --harness-note up front. The harness never sees a problem
+--report-only             print the comparison table of every run under bench/ (a run
+                          prints only its own row, or its --both pair, and points here)
+--manage                  the bench console with no server, no model, no run: numbered
+                          runs, delete one, bring it back. Same commands work while a
+                          run is going - press a key in its window, type help
+--list-runs               the numbered list of runs, once
+--delete-run N|NAME       move one run out of the report into bench/_archive
+                          (a name must identify exactly one run; the run in progress
+                          cannot be deleted; nothing is erased)
+--restore-run N|NAME      move an archived run back into bench/, so it counts again
 --extra-body JSON         e.g. '{"chat_template_kwargs":{"enable_thinking":false}}'
 --self-test               verify the evaluator on your machine (no server needed)
 --harness yes|no          answer the run's harness question up front: was an agent
@@ -133,7 +161,17 @@ speed: decode 18.3 tok/s, prefill/lecture 365.8 tok/s
   (your chat/dsh sessions included): the `-np 1` server queues requests, and
   queue time inflates wall-based speed numbers.
 * Same `--random-sample` size and same `--n` across models; check `sample`
-  column matches in `bench/report.md`.
+  column matches in `bench/report.md`. `--hardest N` changes that hash on purpose:
+  a row with a hardest tier is comparable only with the same set. The tier is scored
+  by itself in the `hardest` column (`-` for rows made without one).
+* **A clean 100% is a claim about the sample, not about the model.** The two fast
+  scenarios have short answers and a strong model sweeps them (`code_execution`
+  measured 98-100% here, IQ4_XS and Q2_K_XL alike) — the exec release holds only
+  9 problems flagged `hard` in the unfiltered pool, so `--hardest 25` there says
+  `25 hardest (9 hard, 16 medium)` and still cannot bite. Where the difficulty split
+  actually separates models is code generation: hard pass@1 sat at 21-24% while
+  easy/medium sat at 86-100%. Read the split and the `hardest` line, and put
+  `--hardest 25` in the line whenever a row reads 100%.
 * **pass@1 with n=1** on 100 problems ≈ ±5%; for publishable numbers use
   `--n 10` on the full set (~10× time).
 * Thinking models: score at the setting you'd actually use, but be consistent.
@@ -157,7 +195,10 @@ speed: decode 18.3 tok/s, prefill/lecture 365.8 tok/s
 * `bench/<name>/eval_results.jsonl` — per-test verdicts (Wrong Answer / TLE / RE...)
 * `bench/<name>/speed_probe.json` — prefill + decode tok/s probe
 * `bench/<name>/_summary.json` — SCORE, pass@k, per-difficulty, speed
-* `bench/report.md` / `report.csv` — cross-model comparison table
+* `bench/report.md` / `report.csv` — cross-model comparison table (all runs; a run
+  prints only its own row, or its `--both` pair)
+* `bench/_archive/<stamp>__<folder>` — runs you deleted from the report; `--restore-run`
+  (or `restore` in the bench console) moves one back
 
 ## Benchmark scenarios (`--scenario`)
 
@@ -174,8 +215,8 @@ or `-top` appended (plus the harness suffix) — so the fast runs never disturb 
 code_generation run:
 
 ```
-python lcb_bench.py --scenario code_execution --speed-probe --random-sample 100 --workers 1 --max-tokens 16384 --eval-workers 8
-python lcb_bench.py --scenario test_output_prediction --speed-probe --random-sample 100 --workers 1 --max-tokens 16384 --eval-workers 8
+python lcb_bench.py --scenario code_execution --speed-probe --random-sample 100 --hardest 25 --workers 1 --max-tokens 16384 --eval-workers 8 --both
+python lcb_bench.py --scenario test_output_prediction --speed-probe --random-sample 100 --hardest 25 --workers 1 --max-tokens 16384 --eval-workers 8 --both
 ```
 
 The two extra scenarios are much shorter than code_generation (most answers

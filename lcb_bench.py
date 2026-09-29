@@ -48,7 +48,8 @@ Usage examples
   # 4) Re-run only evaluation of generations you already have:
   python lcb_bench.py --name "qwen3-8b-instruct-q5" --skip-generate
 
-  # 5) Cross-model comparison table (also printed after every run):
+  # 5) Every run side by side. A run itself prints only its own row (or the two
+  #    rows of a --both pair); this is the command that prints them all:
   python lcb_bench.py --report-only
 
   # 6) Sanity-check the Windows evaluator (no model server needed):
@@ -58,11 +59,26 @@ Usage examples
   python lcb_bench.py --harness yes --harness-note "deepseek-harness" \
       --speed-probe --random-sample 100 --workers 1 --max-tokens 16384
 
+  # 8) One command, both rows: pass 1 with nothing else on the model server,
+  #    pass 2 while the agent chat is working. Same problems both times.
+  #    --hardest keeps the run at 100 problems but spends 25 of them on the
+  #    hardest the release has and spreads the rest evenly over easy/medium/hard,
+  #    so one line covers every difficulty and no strong model sweeps it.
+  python lcb_bench.py --both --random-sample 100 --hardest 25
+
+  # 9) Tidy up scores: numbered list, delete one, bring it back. Same commands
+  #    are available while a run is going - press a key in its window, type help.
+  python lcb_bench.py --manage
+  python lcb_bench.py --list-runs
+  python lcb_bench.py --delete-run 2
+  python lcb_bench.py --restore-run 2
+
 Outputs per model: bench/<name>/generations.jsonl (raw outputs, append-only),
 bench/<name>/generations.json (official LCB output format),
 bench/<name>/results_official_format.json (custom_evaluator-compatible, with
 extracted code), bench/<name>/eval_results.jsonl, bench/<name>/_summary.json.
-Cross-model table: bench/report.md + bench/report.csv.
+Cross-model table: bench/report.md + bench/report.csv. Runs you delete move to
+bench/_archive/<stamp>__<folder> instead of being erased, and drop out of the table.
 """
 
 import argparse
@@ -76,6 +92,7 @@ import multiprocessing
 import os
 import pickle
 import re
+import shutil
 import sys
 import time
 import zlib
@@ -94,6 +111,14 @@ except AttributeError:  # python < 3.11
     pass
 
 DATASET_NAME = "livecodebench/code_generation_lite"
+# Set by filter_sample when --hardest picks problems for the sample, so the run's
+# _summary.json and its row can say what the sample really is.
+SAMPLE_NOTE = ""
+# ... and which question_ids the hardest tier is made of, so their pass rate can
+# be reported on its own instead of blended into "hard".
+HARDEST_IDS = set()
+# The console answers commands typed while a run is going; see bench_command.
+CONSOLE_LIVE = False
 
 # -----------------------------------------------------------------------------
 # Prompts (official LiveCodeBench OpenAIChat dialog style — verbatim, this is
@@ -177,7 +202,7 @@ def extract_code(model_output: str, extractor: str) -> str:
 
 
 def load_problems(release, start_date, end_date, difficulty, limit,
-                  random_sample=0, sample_ids_file=None):
+                  random_sample=0, sample_ids_file=None, hardest=0):
     # Imported lazily so spawned eval children don't pay this cost.
     from datasets import load_dataset
 
@@ -227,12 +252,94 @@ def load_problems(release, start_date, end_date, difficulty, limit,
         )
     return filter_sample(
         problems, start_date, end_date, difficulty, limit,
-        random_sample, sample_ids_file,
+        random_sample, sample_ids_file, hardest=hardest,
     )
 
 
+def problem_weight(problem):
+    """Rough hardness signal inside a difficulty band: how many test cases the
+    answer has to satisfy at once. Unknown for now (the fast scenarios ship one
+    input/output pair per row), so 0 - the other sort keys decide there."""
+    try:
+        data = json.loads(problem.get("eval_payload") or "")
+    except Exception:
+        return 0
+    if isinstance(data, dict):
+        for key in ("inputs", "testcases"):
+            if isinstance(data.get(key), list):
+                return len(data[key])
+    return 0
+
+
+HARDNESS_RANK = {"hard": 0, "medium": 1, "easy": 2}
+
+
+def hardest_picks(pool, count, exclude=()):
+    """The `count` hardest problems of `pool` that are not already `exclude`d:
+    hard before medium before easy, then the most test cases, then the newest
+    contest (recent problems are less memorised)."""
+    skip = {str(q) for q in exclude}
+    left = [p for p in pool if str(p["question_id"]) not in skip]
+    left.sort(key=lambda p: (HARDNESS_RANK.get(str(p["difficulty"]).lower(), 1),
+                             -problem_weight(p),
+                             -p["contest_date"].timestamp(),
+                             str(p["question_id"])))
+    return left[:count]
+
+
+def stratified_pick(pool, count, seed=1234, equal_tiers=False):
+    """`count` problems taken from `pool`. By default the difficulties are spread
+    in the proportion the pool holds them; with `equal_tiers` every difficulty
+    present gets the same share instead (25 easy / 25 medium / 25 hard, ...).
+    Fixed seed: the same pool always gives the same picks."""
+    import random as _random
+
+    rng = _random.Random(seed)
+    groups = {}
+    for p in pool:
+        groups.setdefault(p["difficulty"].lower(), []).append(p)
+    if equal_tiers:
+        quotas = {d: count / len(groups) for d in groups}
+    else:
+        quotas = {d: count * len(g) / len(pool) for d, g in groups.items()}
+    alloc = {d: int(q) for d, q in quotas.items()}
+    remaining = count - sum(alloc.values())
+    for d in sorted(quotas, key=lambda k: quotas[k] - int(quotas[k]), reverse=True):
+        if remaining <= 0:
+            break
+        alloc[d] += 1
+        remaining -= 1
+    picked = []
+    for d, g in groups.items():
+        picked += rng.sample(g, min(alloc[d], len(g)))
+    if len(picked) < count:
+        # a tier ran out (a release can hold very few hard problems) - top up
+        # from what is left so the sample still comes out `count` wide.
+        taken = {str(p["question_id"]) for p in picked}
+        left = [p for p in pool if str(p["question_id"]) not in taken]
+        picked += rng.sample(left, min(count - len(picked), len(left)))
+    return picked
+
+
+def _write_sample_ids(path, problems):
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(sorted(str(p["question_id"]) for p in problems), f)
+
+
+def _write_tier(path, ids):
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(sorted(ids), f)
+
+
 def filter_sample(problems, start_date, end_date, difficulty, limit,
-                  random_sample=0, sample_ids_file=None):
+                  random_sample=0, sample_ids_file=None, hardest=0):
+    global SAMPLE_NOTE, HARDEST_IDS
+    SAMPLE_NOTE = ""
+    HARDEST_IDS = set()
+    tier_file = (os.path.join(os.path.dirname(sample_ids_file) or ".",
+                              "hardest_ids.json") if sample_ids_file else None)
     problems.sort(key=lambda p: str(p["question_id"]))
     if start_date:
         d = dt.datetime.strptime(start_date, "%Y-%m-%d")
@@ -246,37 +353,79 @@ def filter_sample(problems, start_date, end_date, difficulty, limit,
         ]
     if limit:
         problems = problems[:limit]
+    pool = problems
+    reused_sample = False
     if random_sample:
         if sample_ids_file and os.path.exists(sample_ids_file):
             # resume: reuse the exact same subset chosen for this run
+            reused_sample = True
             with open(sample_ids_file, encoding="utf-8") as f:
                 keep = {str(x) for x in json.load(f)}
             problems = [p for p in problems if str(p["question_id"]) in keep]
         elif len(problems) > random_sample:
-            import random as _random
-
-            rng = _random.Random(1234)
-            groups = {}
-            for p in problems:
-                groups.setdefault(p["difficulty"].lower(), []).append(p)
-            quotas = {d: random_sample * len(g) / len(problems) for d, g in groups.items()}
-            alloc = {d: int(q) for d, q in quotas.items()}
-            remaining = random_sample - sum(alloc.values())
-            for d in sorted(quotas, key=lambda k: quotas[k] - int(quotas[k]), reverse=True):
-                if remaining <= 0:
-                    break
-                alloc[d] += 1
-                remaining -= 1
-            picked = []
-            for d, g in groups.items():
-                picked += rng.sample(g, min(alloc[d], len(g)))
+            picked = stratified_pick(problems, random_sample)
             picked.sort(key=lambda p: str(p["question_id"]))
             problems = picked
             if sample_ids_file:
                 os.makedirs(os.path.dirname(sample_ids_file) or ".", exist_ok=True)
                 with open(sample_ids_file, "w", encoding="utf-8") as f:
                     json.dump(sorted(str(p["question_id"]) for p in picked), f)
-    print(f"Loaded {len(problems)} problems")
+    if hardest and reused_sample:
+        if tier_file and os.path.exists(tier_file):
+            with open(tier_file, encoding="utf-8") as f:
+                HARDEST_IDS = {str(x) for x in json.load(f)}
+            print(f"--hardest {hardest}: this run already has its saved sample"
+                  f" list, so it is reused exactly as it was picked"
+                  f" ({len(HARDEST_IDS)} of them are the hardest tier)")
+        else:
+            print(f"--hardest {hardest}: this run already has its saved sample list"
+                  " (the hardest problems are inside it), so it is reused exactly as"
+                  " it was picked")
+        hardest = 0
+    if hardest:
+        if limit:
+            print(f"--hardest {hardest}: ignored together with --limit (the limit"
+                  " already says which problems, hardest has no room to pick any)")
+        elif random_sample and len(pool) > random_sample:
+            # One command, one sample of exactly random_sample problems: the
+            # hardest N slots go to the hardest problems the release has, the
+            # rest are spread evenly over easy / medium / hard. --random-sample
+            # 100 --hardest 25 is 25 hardest + 25 easy + 25 medium + 25 hard:
+            # every difficulty in one total, no 100% surprise.
+            chosen = hardest_picks(pool, min(hardest, random_sample))
+            ids = {str(p["question_id"]) for p in chosen}
+            room = random_sample - len(chosen)
+            rest_pool = [p for p in pool if str(p["question_id"]) not in ids]
+            rest = (rest_pool if room >= len(rest_pool)
+                    else stratified_pick(rest_pool, room, equal_tiers=True))
+            problems = sorted(chosen + rest, key=lambda p: str(p["question_id"]))
+            HARDEST_IDS = set(ids)
+            bd = {}
+            for p in chosen:
+                k = str(p["difficulty"]).lower()
+                bd[k] = bd.get(k, 0) + 1
+            SAMPLE_NOTE = (f"{len(chosen)} hardest ("
+                           + ", ".join(f"{v} {d}" for d, v in sorted(bd.items()))
+                           + f") + {len(rest)} spread (--hardest {hardest})")
+            print(f"Hardest: {SAMPLE_NOTE}")
+            if sample_ids_file:
+                _write_sample_ids(sample_ids_file, problems)
+                _write_tier(tier_file, HARDEST_IDS)
+        elif random_sample:
+            print(f"--hardest {hardest}: the filter holds {len(pool)} problems,"
+                  " not more than the sample size, so hardest has nowhere to pick")
+        else:
+            # --hardest N on its own: the run IS those N hardest problems.
+            problems = hardest_picks(pool, hardest)
+            HARDEST_IDS = {str(p["question_id"]) for p in problems}
+            SAMPLE_NOTE = f"{len(problems)} hardest (--hardest {hardest})"
+            print(f"Hardest: {SAMPLE_NOTE}")
+            if tier_file:
+                _write_tier(tier_file, HARDEST_IDS)
+    counts = {}
+    for p in problems:
+        counts[str(p["difficulty"]).lower()] = counts.get(str(p["difficulty"]).lower(), 0) + 1
+    print(f"Loaded {len(problems)} problems ({', '.join(f'{v} {d}' for d, v in sorted(counts.items()))})")
     return problems
 
 
@@ -395,7 +544,8 @@ def format_prompt_top(question_content, starter_code, function_name, testcase_in
 
 
 def load_exec_problems(release, start_date, end_date, difficulty, limit,
-                       random_sample=0, sample_ids_file=None, cot=False):
+                       random_sample=0, sample_ids_file=None, cot=False,
+                       hardest=0):
     from datasets import load_dataset
 
     ds = load_dataset(EXEC_DATASET_NAME, split="test", trust_remote_code=True)
@@ -426,12 +576,12 @@ def load_exec_problems(release, start_date, end_date, difficulty, limit,
         )
     return filter_sample(
         problems, start_date, end_date, difficulty, limit,
-        random_sample, sample_ids_file,
+        random_sample, sample_ids_file, hardest=hardest,
     )
 
 
 def load_top_problems(release, start_date, end_date, difficulty, limit,
-                      random_sample=0, sample_ids_file=None):
+                      random_sample=0, sample_ids_file=None, hardest=0):
     from datasets import load_dataset
 
     ds = load_dataset(TOP_DATASET_NAME, split="test", trust_remote_code=True)
@@ -457,7 +607,7 @@ def load_top_problems(release, start_date, end_date, difficulty, limit,
         )
     return filter_sample(
         problems, start_date, end_date, difficulty, limit,
-        random_sample, sample_ids_file,
+        random_sample, sample_ids_file, hardest=hardest,
     )
 
 
@@ -1456,6 +1606,54 @@ def ask_harness_which(cands):
         return ans
 
 
+def ask_harness_pair_note(preset=None):
+    """Which harness shares the model server, asked once for a --both pair (the
+    no-pass needs no answer). --harness-note answers it up front; detached, it
+    is the saved address if there is one."""
+    if preset:
+        return preset
+    if not sys.stdin.isatty():
+        guess, label = harness_auto_note()
+        if guess:
+            print(f"         pass 2 takes the harness from {label}: {guess}")
+        else:
+            print("         no keyboard and no saved harness address: pass 2 records"
+                  " its yes without an address (--harness-note names one)")
+        return guess
+    return ask_harness_which(harness_addr_candidates())
+
+
+def both_answers(base, scen, preset_note=None):
+    """--both: one command, both answers to the harness question, two comparable
+    rows. The no pass comes first (nothing else should be on the model server
+    while it runs), then the yes pass with the agent chat working as usual.
+    Nothing is ever routed through the harness - it only shares the server."""
+    print("\n--both: the same problems twice, one pass per answer to the harness"
+          " question.")
+    for num, mode in enumerate(("no", "yes"), 1):
+        print(f"   pass {num}/2 answers '{mode}' -> bench\\{resolve_run_dir(base, scen, mode)}"
+              + (" (nothing else on the server while it runs)" if mode == "no"
+                 else " (agent chat working on its own tasks while it runs)"))
+    print("   Both passes ask the model the same way: the chat never sees a"
+          " problem,")
+    print("   it only shares the server, so both rows are the raw model.")
+    note = ask_harness_pair_note(preset_note)
+    if preset_note:
+        print(f"   pass 2/2 uses that harness: {note}")
+    if sys.stdin.isatty():
+        try:
+            input("Press Enter to start pass 1/2 (close the agent chat first, so"
+                  " the 'no' row really runs alone): ")
+        except EOFError:
+            print("   (no keyboard: starting right away)")
+        except KeyboardInterrupt:
+            raise SystemExit("\nStopped before pass 1/2, so nothing was started."
+                             " One pass at a time works with --harness yes|no.")
+    return [("no", None, "you answered: nothing else on the server (--both pass 1)"),
+            ("yes", note, "you answered: the agent chat shared the server"
+                          " (--both pass 2)")]
+
+
 def recorded_harness(run_dir):
     """Harness value already recorded for an existing run dir, or None."""
     sp = os.path.join(run_dir, "_summary.json")
@@ -1523,6 +1721,21 @@ def main():
                     help="Stratified random subset of N problems (fair + fast; same subset "
                          "every time via fixed seed, saved to bench/<name>/sample_ids.json "
                          "so every model is scored on the identical problems)")
+    ap.add_argument("--hardest", type=int, default=0, metavar="N",
+                    help="Take N of the sample's slots for the hardest problems in"
+                         " the release (hard first, then the most test cases, then"
+                         " the newest contest) and spread the rest evenly over"
+                         " easy / medium / hard, so one command covers every"
+                         " difficulty in one total: --random-sample 100 --hardest"
+                         " 25 is 25 hardest + 25 easy + 25 medium + 25 hard. On its"
+                         " own the run IS those N hardest problems. A small"
+                         " easy-weighted sample lets a good model print 100%%.")
+    ap.add_argument("--both", action="store_true",
+                    help="One command, both rows: run the whole scenario twice on the"
+                         " same problems - pass 1 with the harness question answered no"
+                         " (nothing else on the model server), pass 2 answered yes (the"
+                         " agent chat working while the bench runs). The pair is asked"
+                         " up front once; no harness ever sees a problem.")
     ap.add_argument("--extractor", default="auto", choices=["auto", "official"],
                     help="auto = official last-fence rule + truncation/fenceless fallback")
     ap.add_argument("--timeout", type=int, default=6,
@@ -1530,7 +1743,21 @@ def main():
     ap.add_argument("--eval-workers", type=int, default=max(1, (os.cpu_count() or 4) // 2))
     ap.add_argument("--skip-generate", action="store_true")
     ap.add_argument("--skip-eval", action="store_true")
-    ap.add_argument("--report-only", action="store_true")
+    ap.add_argument("--report-only", action="store_true",
+                    help="Print the full comparison table of every run under bench/"
+                         " (the bench console's 'report' command does the same)")
+    ap.add_argument("--manage", action="store_true",
+                    help="Open the bench console without a server, a model or a run:"
+                         " list the scores, delete one, bring it back. Same commands as"
+                         " while a run is going: type help.")
+    ap.add_argument("--list-runs", action="store_true",
+                    help="Print the numbered list of runs the bench console works on")
+    ap.add_argument("--delete-run", default=None, metavar="NAME_OR_NUMBER",
+                    help="Move one run out of the report into bench/_archive (reversible"
+                         " with --restore-run). No server, no model needed.")
+    ap.add_argument("--restore-run", default=None, metavar="NAME_OR_NUMBER",
+                    help="Move a run back out of bench/_archive into bench/, so it"
+                         " counts in the report again")
     ap.add_argument("--speed-probe", action="store_true",
                     help="Measure server prefill ('lecture') + decode tok/s with 2 probe requests")
     ap.add_argument("--probe-only", action="store_true",
@@ -1555,8 +1782,9 @@ def main():
                          " server, which inflates wall time. Needed when the run is"
                          " detached or piped (nothing can answer). Never guessed.")
     ap.add_argument("--harness-note", default=None, metavar="ADDRESS_OR_NAME",
-                    help="With --harness yes: say WHICH harness shared the server. An"
-                         " address is best (e.g. --harness-note http://127.0.0.1:3080)"
+                    help="With --harness yes (or --both, for its yes pass): say"
+                         " WHICH harness shared the server. An address is best"
+                         " (e.g. --harness-note http://127.0.0.1:3080)"
                          " - the bench then checks that address is really answering and"
                          " records it; a name or path is recorded as said. Metadata"
                          " only: the yes/no answer is what separates the two runs.")
@@ -1575,7 +1803,11 @@ def main():
 
     if args.probe_only and not args.speed_probe:
         ap.error("--probe-only requires --speed-probe")
-    if args.harness_note and args.harness != "yes" and args.set_harness != "yes":
+    if args.both and args.harness:
+        ap.error("--both runs the scenario twice and answers the harness question"
+                 " both ways; --harness answers it once. Use one or the other.")
+    if args.harness_note and args.harness != "yes" and args.set_harness != "yes" \
+            and not args.both:
         ap.error("--harness-note needs --harness yes (it says which harness it was)")
 
     if args.self_test:
@@ -1584,6 +1816,41 @@ def main():
     os.makedirs("bench", exist_ok=True)
     if args.report_only:
         build_report()
+        return
+    if args.list_runs:
+        console_list("runs")
+        if console_entries(archived=True):
+            console_list("archive")
+        return
+    if args.delete_run is not None:
+        rows = console_entries()
+        row, complaint = console_find(args.delete_run, rows, "run")
+        if complaint:
+            console_list("runs")
+            sys.exit(complaint)
+        dest, complaint = archive_run(row)
+        if complaint:
+            sys.exit(complaint)
+        print(f"deleted {row['label']}: moved to {dest}")
+        print("nothing was erased - --restore-run (or 'restore' in the console)"
+              " brings it back; bench/report.md + .csv are rebuilt without it")
+        build_report(show=False)
+        return
+    if args.restore_run is not None:
+        rows = console_entries(archived=True)
+        row, complaint = console_find(args.restore_run, rows, "archived run")
+        if complaint:
+            print("Archived runs:")
+            console_list("archive")
+            sys.exit(complaint)
+        back, complaint = restore_run(row)
+        if complaint:
+            sys.exit(complaint)
+        print(f"restored {row['label']} -> {back}, it counts in the report again")
+        build_report(show=False)
+        return
+    if args.manage:
+        console_loop()
         return
     if args.set_harness:
         if not args.name:
@@ -1639,21 +1906,51 @@ def main():
         ap.error("the server reported no model id and no --name was given: pass"
                  " --name <label> (and --model <id> if the server needs it).")
 
-    # Harness mode: --harness flag > asked out loud > already recorded > unknown.
+    # Harness mode: --both asks for both answers at once; otherwise --harness
+    # flag > asked out loud > already recorded > unknown. Never guessed.
     prev_harness = recorded_harness(os.path.join("bench", base + SCEN_SUFFIX[scen]))
-    if args.harness:
-        harness_val, harness_note = args.harness, args.harness_note
-        harness_src = "--harness flag"
-    elif sys.stdin.isatty():
-        stem = base + SCEN_SUFFIX[scen]
-        folders = {mode: stem + HARNESS_SUFFIX[mode] for mode in HARNESS_SUFFIX}
-        folders[None] = stem
-        harness_val, harness_note, src = ask_harness_mode(prev_harness, folders)
-        harness_src = src
+    if args.both:
+        passes = both_answers(base, scen, args.harness_note)
     else:
-        harness_val, harness_note = prev_harness, None
-        harness_src = ("kept from an earlier phase of this run" if prev_harness
-                       else "not answered (detached run) - use --harness yes|no")
+        if args.harness:
+            harness_val, harness_note = args.harness, args.harness_note
+            harness_src = "--harness flag"
+        elif sys.stdin.isatty():
+            stem = base + SCEN_SUFFIX[scen]
+            folders = {mode: stem + HARNESS_SUFFIX[mode] for mode in HARNESS_SUFFIX}
+            folders[None] = stem
+            harness_val, harness_note, src = ask_harness_mode(prev_harness, folders)
+            harness_src = src
+        else:
+            harness_val, harness_note = prev_harness, None
+            harness_src = ("kept from an earlier phase of this run" if prev_harness
+                           else "not answered (detached run) - use --harness yes|no")
+        passes = [(harness_val, harness_note, harness_src)]
+    done = []
+    try:
+        # passes come ordered: the no-harness one first, so it really runs alone
+        for harness_val, harness_note, harness_src in passes:
+            got = run_one(args, scen, base, model_id, harness_val, harness_note,
+                          harness_src, report_after=(len(passes) == 1))
+            if got:
+                done.append(got)
+    finally:
+        if len(passes) > 1 and done:
+            # the pair belongs together: show just these two rows, not the whole
+            # history (that is what --report-only is for)
+            build_report(only=done)
+
+
+
+def run_one(args, scen, base, model_id, harness_val, harness_note,
+          harness_src, report_after=True):
+    """One bench pass, end to end: probe, pick problems, generate, extract,
+    grade, write bench/<run>/_summary.json and print that run's row.
+
+    Called once normally and twice with --both (the no-harness pass, then the
+    with-harness pass). Returns the run folder name, or None when the pass
+    stopped before producing anything (--probe-only).
+    """
     run_slug = resolve_run_dir(base, scen, harness_val)
     run_dir = os.path.join("bench", run_slug)
     resuming = os.path.isfile(os.path.join(run_dir, "generations.jsonl"))
@@ -1667,6 +1964,16 @@ def main():
     print(f"Model:   {model_id or 'UNKNOWN - pass --model <server model id>'}")
     print(f"Harness: {harness_val or 'unknown'} ({harness_src}"
           + (f"; {harness_note}" if harness_note else "") + ")")
+    # The bench console: any key during the run opens it, so scores can be
+    # listed and deleted while the model is still working. Only with a keyboard
+    # attached; a piped or detached run never blocks on one.
+    global CONSOLE_LIVE
+    _CONSOLE_ACTIVE["run"] = run_dir
+    if sys.stdin.isatty():
+        CONSOLE_LIVE = True
+        print("           console: type 'help' any time during the run (the first"
+              " keypress opens\n           bench> - list / delete 2 / restore 1 /"
+              " status / quit)")
     # The harness note may carry an address: check it is really there. Evidence
     # only - it can never turn a "no" into a "yes" or the other way round.
     harness_probe = {}
@@ -1712,16 +2019,18 @@ def main():
     if scen == "codegen":
         problems = load_problems(args.release, args.start_date, args.end_date,
                                  args.difficulty, args.limit,
-                                 args.random_sample, sample_file)
+                                 args.random_sample, sample_file,
+                                 hardest=args.hardest)
     elif scen == "exec":
         problems = load_exec_problems(args.release, args.start_date, args.end_date,
                                       args.difficulty, args.limit,
                                       args.random_sample, sample_file,
-                                      cot=args.exec_cot)
+                                      cot=args.exec_cot, hardest=args.hardest)
     else:
         problems = load_top_problems(args.release, args.start_date, args.end_date,
                                      args.difficulty, args.limit,
-                                     args.random_sample, sample_file)
+                                     args.random_sample, sample_file,
+                                     hardest=args.hardest)
     qorder = [p["question_id"] for p in problems]
     probs_by_id = {p["question_id"]: p for p in problems}
     gen_path = os.path.join(run_dir, "generations.jsonl")
@@ -1766,6 +2075,7 @@ def main():
                         fail = " FAILED" if rec.get("failed") else ""
                         print(f"[gen {gen_count}/{len(tasks)}] {rec['qid']}#{rec['si']} "
                               f"{secs}s{tps}{fail}", flush=True)
+                        console_tick(run_dir)
             print(f"Generation phase done in {(time.time() - t0) / 60:.1f} min")
 
     done = load_gen_checkpoint(gen_path)
@@ -1849,6 +2159,7 @@ def main():
                     if done_ct % 10 == 0 or done_ct == len(jobs):
                         print(f"[eval {done_ct}/{len(jobs)}] "
                               f"elapsed {(time.time() - t_eval) / 60:.1f} min", flush=True)
+                    console_tick(run_dir)
     else:
         print("Evaluation already complete for current problem set")
 
@@ -1882,6 +2193,13 @@ def main():
 
     metrics = compute_pass_metrics(per_problem)
     diff_metrics = {d: compute_pass_metrics(v) for d, v in sorted(per_diff.items())}
+    # The --hardest tier on its own: without this a run of 25 hardest inside 100
+    # problems only ever shows one blended "hard" number.
+    hardest_rates = [per_problem_pass[qid] for qid in per_problem_pass
+                     if str(qid) in HARDEST_IDS]
+    hardest_m = {"n": len(hardest_rates),
+                 "pass@1": round(sum(hardest_rates) / len(hardest_rates), 4)
+                 if hardest_rates else None}
 
     gen_secs_total = sum(r["seconds"] for r in done.values() if r.get("seconds"))
     gen_tok_total = sum(r["completion_tokens"] or 0 for r in done.values())
@@ -1940,6 +2258,8 @@ def main():
             "start_date": args.start_date, "end_date": args.end_date,
             "difficulty": args.difficulty, "limit": args.limit or None,
             "random_sample": args.random_sample or None,
+            "hardest": args.hardest or None,
+            "sample_note": SAMPLE_NOTE or None,
             "extractor": args.extractor, "eval_timeout": args.timeout,
             "scenario": scen, "exec_cot": bool(args.exec_cot),
             "problems_total": len(per_problem),
@@ -1947,6 +2267,7 @@ def main():
         "sample_hash": hashlib.sha1(",".join(str(q) for q in sorted(
             str(p["question_id"]) for p in problems)).encode()).hexdigest()[:12],
         "counts": {d: len(v) for d, v in sorted(per_diff.items())},
+        "hardest_tier": hardest_m if hardest_m["n"] else None,
         "generation_stats": {
             "generated": n_gen,
             "failed_requests": failed_requests,
@@ -1993,12 +2314,27 @@ def main():
     if summary.get("score") is not None:
         print(f"SCORE: {summary['score']}%  "
               f"({len(per_problem)} problems, {args.n} sample(s) each) "
-              f"[sample {summary['sample_hash']}]")
+              f"[sample {summary['sample_hash']}"
+              + (f", {SAMPLE_NOTE}" if SAMPLE_NOTE else "") + "]")
     for k, v in metrics.items():
         print(f"{k:>8}: {v * 100:.2f}%")
     for d, mm in diff_metrics.items():
         if "pass@1" in mm:
             print(f"  {d:>7}: {mm['pass@1'] * 100:.2f}%  ({len(per_diff[d])} problems)")
+    if hardest_m["n"] and hardest_m["n"] < len(per_problem):
+        print(f"  hardest: {hardest_m['pass@1'] * 100:.2f}%"
+              f"  ({hardest_m['n']} problems of the --hardest tier)")
+    if summary.get("score") is not None and summary["score"] >= 99.0:
+        hard_n = len(per_diff.get("hard", []))
+        if hard_n == len(per_problem):
+            print(f"      100% and every problem in this sample was flagged hard"
+                  f" ({hard_n} of {len(per_problem)}) - this sample separates"
+                  " nothing, do not read it as a ceiling on the model")
+        else:
+            print(f"      100% on {len(per_problem)} problems where only {hard_n}"
+                  " were hard - that sample cannot tell models apart; rerun with"
+                  " --random-sample 100 --hardest 25 (its sample hash changes,"
+                  " so old rows stay separate and comparable on their own terms)")
     spd = summary["speed"]
     if spd.get("decode_tokens_per_sec"):
         print(f"   speed: decode {spd['decode_tokens_per_sec']} tok/s, "
@@ -2030,7 +2366,317 @@ def main():
           + (f" - {', '.join(probe_parts)}" if probe_parts else "") + ")")
     print(f"Summary: {summary_path}\n")
 
-    build_report()
+    if report_after:
+        build_report(only=run_slug)
+    return run_slug
+
+# -----------------------------------------------------------------------------
+# The bench console: see the scores, delete one, bring it back. Works while a
+# run is going (type a line, it answers between two problems) and on its own
+# with --manage. A delete never destroys anything: the folder moves to
+# bench/_archive/<stamp>__<name> and restore moves it back.
+# -----------------------------------------------------------------------------
+ARCHIVE_DIR = os.path.join("bench", "_archive")
+CONSOLE_LISTS = {"runs": None, "archive": None}
+
+CONSOLE_HELP = """
+Bench commands - type one any time (during a run, or with --manage):
+  help             this list
+  list             every run, numbered - same order as --report-only
+  delete 2         take run 2 out of the report (numbers come from 'list')
+  delete NAME      same, by folder or model name (a piece of it is enough)
+  archive          the deleted runs, numbered
+  restore 1        put archived run 1 back into the report
+  status           how many runs and archives you have
+  report           the full comparison table (what --report-only prints)
+  quit             stop answering commands
+A delete moves bench\\<name> to bench\\_archive\\<stamp>__<name>; nothing is
+erased, and 'restore' brings it back. The run in progress cannot be deleted.
+"""
+
+
+def _report_key(row):
+    summary = row["summary"] or {}
+    score = summary.get("score")
+    return (summary.get("config", {}).get("scenario", "") or "zz",
+            -(score if isinstance(score, (int, float)) else -1.0), row["label"])
+
+
+def console_entries(archived=False):
+    """The run folders (bench/, or bench/_archive/ when asked) with their
+    _summary.json contents, in report order: scenario, best score first."""
+    root = ARCHIVE_DIR if archived else "bench"
+    rows = []
+    if not os.path.isdir(root):
+        return rows
+    for entry in sorted(os.listdir(root)):
+        d = os.path.join(root, entry)
+        if not os.path.isdir(d):
+            continue
+        if not archived and os.path.abspath(d) == os.path.abspath(ARCHIVE_DIR):
+            continue
+        sp = os.path.join(d, "_summary.json")
+        summary = None
+        if os.path.isfile(sp):
+            try:
+                with open(sp, encoding="utf-8") as f:
+                    summary = json.load(f)
+            except Exception:
+                summary = None
+        label = (summary or {}).get("name") or (
+            entry.split("__", 1)[-1] if archived else entry)
+        orig = entry.split("__", 1)[-1] if "__" in entry else entry
+        rows.append({"path": d, "folder": entry, "label": label,
+                     "orig": orig, "summary": summary})
+    if archived:
+        rows.sort(key=lambda r: r["folder"])
+    else:
+        rows.sort(key=_report_key)
+    return rows
+
+
+def console_print_rows(rows, title, active=None, archived=False):
+    print(title)
+    if not rows:
+        print("     (none)")
+        return rows
+    for num, row in enumerate(rows, 1):
+        s = row["summary"] or {}
+        score = s.get("score")
+        scen = (s.get("config") or {}).get("scenario") or "?"
+        n = sum((s.get("counts") or {}).values())
+        mark = "*" if active and os.path.abspath(row["path"]) == os.path.abspath(active) else " "
+        print(f"  {mark}{num:>3}  {row['label']:<44}"
+              f" {('%.1f%%' % score) if isinstance(score, (int, float)) else 'no score':>9}"
+              f"  {'fast' if scen in ('exec', 'top') else 'slow'} {scen:<9}"
+              f" {str(s.get('harness') or '?'):<7} {n if n else '-':>5}"
+              f"  {(s.get('sample_hash') or '-')[:12]:<12}"
+              f" {(s.get('generated_at') or '')[:10]}")
+    if archived:
+        print("     restore <number> puts one of these back into the report.")
+    else:
+        print("     * = the run in progress. delete <number> takes one out of the"
+              " report.")
+    return rows
+
+
+def console_list(kind="runs"):
+    """Numbered list of the runs (or of the archive), remembered so 'delete 2'
+    knows what 2 was."""
+    archived = (kind == "archive")
+    rows = console_entries(archived=archived)
+    CONSOLE_LISTS[kind] = rows
+    title = ("Archived runs (restore <number> puts one back):" if archived
+             else "Runs in the report:")
+    return console_print_rows(rows, title, active=_CONSOLE_ACTIVE.get("run"),
+                              archived=archived)
+
+
+def console_find(arg, rows, what):
+    """One run out of a numbered list: by its number, or by (a piece of) its
+    name. Returns (row, None) or (None, complaint)."""
+    if not rows:
+        return None, (f"there is no {what} to pick from - 'list'"
+                      " shows what exists")
+    arg = str(arg).strip()
+    if arg.isdigit():
+        pick = int(arg)
+        if 1 <= pick <= len(rows):
+            return rows[pick - 1], None
+        return None, f"there is no {what} number {pick} (1-{len(rows)} exist)"
+    hits = [r for r in rows if r["label"].lower() == arg.lower()
+            or r["folder"].lower() == arg.lower()]
+    if not hits:
+        hits = [r for r in rows if arg.lower() in r["label"].lower()
+                or arg.lower() in r["folder"].lower()]
+    if not hits:
+        return None, f"no {what} matches '{arg}' - 'list' shows them numbered"
+    if len(hits) > 1:
+        names = ", ".join(r["label"] for r in hits[:6])
+        return None, f"'{arg}' matches {len(hits)} of them ({names}) - be exact or use a number"
+    return hits[0], None
+
+
+def archive_run(row, active=None):
+    """Move a run folder into bench/_archive. Reversible; never touches the run
+    that is being written right now."""
+    if active and os.path.abspath(row["path"]) == os.path.abspath(active):
+        return None, ("that is the run in progress - it is being written now; stop"
+                      " it first")
+    stamp = dt.datetime.now().strftime("%Y%m%d-%H%M%S")
+    dest = os.path.join(ARCHIVE_DIR, f"{stamp}__{row['folder']}")
+    step = 0
+    while os.path.exists(dest):
+        step += 1
+        dest = os.path.join(ARCHIVE_DIR, f"{stamp}__{row['folder']}-{step}")
+    try:
+        os.makedirs(ARCHIVE_DIR, exist_ok=True)
+        shutil.move(row["path"], dest)
+    except OSError as exc:
+        return None, f"could not move it ({type(exc).__name__}: {exc})"
+    return dest, None
+
+
+def restore_run(row):
+    """Move an archived folder back under bench/ under its original name, so it
+    counts in the report again."""
+    back = os.path.join("bench", row["orig"])
+    if os.path.exists(back):
+        return None, (f"bench\\{row['label']} already exists - the name is taken;"
+                      " delete or rename that one first")
+    try:
+        shutil.move(row["path"], back)
+    except OSError as exc:
+        return None, f"could not move it back ({type(exc).__name__}: {exc})"
+    return back, None
+
+
+def refresh_report_files():
+    """bench/report.md + .csv rebuilt from what is left, without the table."""
+    build_report(show=False)
+
+
+def bench_command(line, active=None):
+    """One console line. False means the console should stop listening."""
+    parts = line.strip().split()
+    if not parts:
+        return True
+    cmd, arg = parts[0].lower(), " ".join(parts[1:])
+    if cmd in ("help", "?", "h"):
+        print(CONSOLE_HELP)
+        return True
+    if cmd in ("list", "ls", "runs"):
+        if arg in ("archive", "archived", "a"):
+            console_list("archive")
+        else:
+            console_list("runs")
+        return True
+    if cmd in ("archive", "archived"):
+        console_list("archive")
+        return True
+    if cmd in ("delete", "del", "rm", "remove"):
+        if not arg:
+            print("'delete' needs to know which one: 'list', then 'delete 2' (or"
+                  " 'delete <name>').")
+            return True
+        rows = CONSOLE_LISTS["runs"]
+        if rows is None:
+            rows = console_list("runs")
+        row, complaint = console_find(arg, rows, "run")
+        if complaint:
+            print(f"     {complaint}")
+            return True
+        dest, complaint = archive_run(row, active)
+        if complaint:
+            print(f"     not deleted: {complaint}")
+            return True
+        print(f"     deleted {row['label']}: moved to {dest}")
+        print("     the report is rebuilt without it; 'archive' lists what is"
+              " there, 'restore <number>' brings one back.")
+        CONSOLE_LISTS["runs"] = None
+        refresh_report_files()
+        return True
+    if cmd in ("restore", "undelete"):
+        if not arg:
+            console_list("archive")
+            print("     'restore <number>' brings one of those back into the report.")
+            return True
+        rows = CONSOLE_LISTS["archive"]
+        if rows is None:
+            rows = console_list("archive")
+        row, complaint = console_find(arg, rows, "archived run")
+        if complaint:
+            print(f"     {complaint}")
+            return True
+        back, complaint = restore_run(row)
+        if complaint:
+            print(f"     not restored: {complaint}")
+            return True
+        print(f"     restored {row['label']} -> {back}, it counts in the report"
+              " again")
+        CONSOLE_LISTS["runs"] = None
+        CONSOLE_LISTS["archive"] = None
+        refresh_report_files()
+        return True
+    if cmd in ("report", "table"):
+        build_report()
+        return True
+    if cmd == "status":
+        runs = console_entries()
+        archives = console_entries(archived=True)
+        scored = [r for r in runs if isinstance((r["summary"] or {}).get("score"),
+                                               (int, float))]
+        print(f"     {len(runs)} run(s) under bench/ ({len(scored)} with a score),"
+              f" {len(archives)} archived. Reports: bench/report.md,"
+              " bench/report.csv")
+        return True
+    if cmd in ("quit", "exit", "q"):
+        return False
+    print(f"     Unknown command '{cmd}'. Type help.")
+    return True
+
+
+_CONSOLE_ACTIVE = {"run": None}
+
+try:
+    import msvcrt as _msvcrt
+except ImportError:          # not Windows
+    _msvcrt = None
+
+
+def _key_ready():
+    """Is a line waiting on the keyboard? Never blocks, and says no when there
+    is no keyboard to listen to (piped run, Start-Process, agent chat)."""
+    if not CONSOLE_LIVE:
+        return False
+    try:
+        if not sys.stdin.isatty():
+            return False
+    except (AttributeError, ValueError):
+        return False
+    try:
+        if _msvcrt is not None:
+            return bool(_msvcrt.kbhit())
+        import select
+        return bool(select.select([sys.stdin], [], [], 0)[0])
+    except Exception:
+        return False
+
+
+def console_tick(active=None):
+    """One look at the keyboard between two problems: if you typed a bench
+    command, it runs now. Costs nothing when nothing was typed."""
+    global CONSOLE_LIVE
+    if not _key_ready():
+        return
+    try:
+        line = input("bench> ")
+    except EOFError:
+        CONSOLE_LIVE = False
+        print("     (no keyboard to type to - the console is off; --manage opens"
+              " it without a run)")
+        return
+    except KeyboardInterrupt:
+        print("\n     (console: Ctrl-C again to stop the run)")
+        return
+    print(f"bench> {line}")
+    if not bench_command(line, active):
+        CONSOLE_LIVE = False
+        print("     console off; 'help' turns it back on (any key, then help)")
+
+
+def console_loop(active=None):
+    """The bench console on its own (--manage): commands until you leave."""
+    print(CONSOLE_HELP)
+    console_list("runs")
+    while True:
+        try:
+            line = input("bench> ")
+        except (EOFError, KeyboardInterrupt):
+            print()
+            return
+        if not bench_command(line, active):
+            return
 
 
 # -----------------------------------------------------------------------------
@@ -2038,7 +2684,13 @@ def main():
 # -----------------------------------------------------------------------------
 
 
-def build_report():
+def build_report(only=None, show=True):
+    """Print the cross-run comparison table and rewrite bench/report.md/.csv.
+
+    only: one run name (or a list of them) - the table then holds just that
+    row, which is what a finished run prints. bench/report.md/.csv are always
+    written from every run; --report-only prints all of them.
+    """
     rows = []
     if os.path.isdir("bench"):
         for entry in sorted(os.listdir("bench")):
@@ -2051,9 +2703,12 @@ def build_report():
         return
     rows.sort(key=lambda r: (r.get("config", {}).get("scenario", ""),
                              -(r.get("score") or 0.0)))
+    wanted = None
+    if only is not None:
+        wanted = {only} if isinstance(only, str) else set(only)
     headers = ["run", "model", "harness", "test", "scenario", "SCORE", "problems", "n", "cap",
-               "trunc%", "when-complete", "easy", "medium", "hard", "prefill-tok/s",
-               "gen-tok/s", "gen-min", "sample", "date"]
+               "trunc%", "when-complete", "easy", "medium", "hard", "hardest",
+               "prefill-tok/s", "gen-tok/s", "gen-min", "sample", "date"]
     table = []
     for r in rows:
         m = r.get("metrics", {})
@@ -2079,44 +2734,70 @@ def build_report():
             fmt_pct(dm.get("easy", {}).get("pass@1")),
             fmt_pct(dm.get("medium", {}).get("pass@1")),
             fmt_pct(dm.get("hard", {}).get("pass@1")),
+            fmt_pct((r.get("hardest_tier") or {}).get("pass@1")),
             sp.get("prefill_tokens_per_sec"),
             decode,
             round((sp.get("total_generation_seconds") or 0) / 60, 1),
             r.get("sample_hash") or "-",
             (r.get("generated_at") or "")[:10],
         ])
-    widths = [max(len(str(h)), *(len(str(row[i])) for row in table))
-              for i, h in enumerate(headers)]
-    header_line = "  ".join(f"{h:<{w}}" for h, w in zip(headers, widths))
-    out = ["\n" + header_line, "-" * len(header_line)]
-    for row in table:
-        out.append("  ".join(f"{str(v):<{w}}" for v, w in zip(row, widths)))
-    text = "\n".join(out)
-    print("LiveCodeBench comparison:")
-    print(text)
-    print("\nSCORE = pass@1 % (the single number: higher is better). run = bench folder"
-          "\nlabel, model = the model id the server reported for that run. when-complete ="
-          "\npass rate over answers that did not hit the token cap. test = slow"
-          "\n(code_generation, the main scenario) or fast (code_execution /"
-          "\ntest_output_prediction - narrower skills, much quicker, comparable"
-          "\nacross models but only against the same scenario's rows). harness = did an"
-          "\nagent chat share the model server for that run; every run answers that"
-          "\nquestion out loud (--harness yes|no when detached), it is never guessed,"
-          "\nbecause those requests queue behind the benchmark and inflate"
-          "\ngen-min. It never means the agent answered, and nothing is routed through"
-          "\nit: no harness sees a problem, so both rows are the raw model. unknown ="
-          "\nnobody answered (older run, or a detached run without --harness) - set it"
-          "\nwith --set-harness. Rows are directly comparable only when test /"
-          "\nscenario / problems / n / cap / sample columns match.")
+    all_tables = table
+    table = (all_tables if wanted is None else
+             [row for row in all_tables if row[0] in wanted])
+
+    def render(rows_to_render):
+        if not rows_to_render:
+            return ""
+        widths = [max(len(str(h)), *(len(str(r[i])) for r in rows_to_render))
+                  for i, h in enumerate(headers)]
+        header_line = "  ".join(f"{h:<{w}}" for h, w in zip(headers, widths))
+        return "\n".join(["\n" + header_line, "-" * len(header_line)] +
+                         ["  ".join(f"{str(v):<{w}}" for v, w in zip(r, widths))
+                          for r in rows_to_render])
+
+    text = render(table)
+    full_text = render(all_tables)
+    if show:
+        if wanted is None:
+            print("LiveCodeBench comparison:")
+        elif len(wanted) == 1:
+            print(f"This run ({', '.join(sorted(wanted))}) - every run side by side:"
+                  " python lcb_bench.py --report-only")
+        else:
+            print(f"These runs ({', '.join(sorted(wanted))}) - every run side by"
+                  " side: python lcb_bench.py --report-only")
+        print(text)
+        if wanted is not None and not table:
+            print("     (no score recorded for it yet)")
+    if show and wanted is None:
+        print("\nSCORE = pass@1 % (the single number: higher is better). run = bench folder"
+              "\nlabel, model = the model id the server reported for that run. when-complete ="
+              "\npass rate over answers that did not hit the token cap. test = slow"
+              "\n(code_generation, the main scenario) or fast (code_execution /"
+              "\ntest_output_prediction - narrower skills, much quicker, comparable"
+              "\nacross models but only against the same scenario's rows). harness = did an"
+              "\nagent chat share the model server for that run; every run answers that"
+              "\nquestion out loud (--harness yes|no when detached), it is never guessed,"
+              "\nbecause those requests queue behind the benchmark and inflate"
+              "\ngen-min. It never means the agent answered, and nothing is routed through"
+              "\nit: no harness sees a problem, so both rows are the raw model. unknown ="
+              "\nnobody answered (older run, or a detached run without --harness) - set it"
+              "\nwith --set-harness. hardest = pass rate over the --hardest tier of"
+              "\nthat sample alone ('-' when the run had no such tier). Rows are"
+              "\ndirectly comparable only when test / scenario / problems / n / cap /"
+              "\nsample columns match.")
     os.makedirs("bench", exist_ok=True)
     with open("bench/report.md", "w", encoding="utf-8") as f:
-        f.write("# LiveCodeBench model comparison\n\n```\n" + text + "\n```\n\n"
+        f.write("# LiveCodeBench model comparison\n\n```\n" + full_text + "\n```\n\n"
                 "SCORE = pass@1 % on the sampled problem set - the single headline value.\n"
                 "run = bench folder label; model = the model id the server reported for\n"
                 "that run, so two rows for the same model are always the same model.\n"
                 "prefill-tok/s = prompt-reading (lecture) speed; gen-tok/s = generation speed.\n"
                 "cap = per-answer max_tokens (thinking budget); trunc% = share of answers that hit it.\n"
                 "when-complete = pass rate over the answers that did NOT hit the cap (skill signal).\n"
+                "hardest = pass rate over the --hardest tier of that sample alone (the N hardest\n"
+                "problems in it, saved in that run's hardest_ids.json); '-' when the run had no\n"
+                "such tier.\n"
                 "test = slow (code_generation, the main scenario) or fast (code_execution /\n"
                 "test_output_prediction): fast rows measure narrower skills, run much quicker,\n"
                 "and compare across models only against the same scenario's own rows.\n"
@@ -2135,8 +2816,9 @@ def build_report():
     with open("bench/report.csv", "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         w.writerow(headers)
-        w.writerows(table)
-    print("Report saved: bench/report.md, bench/report.csv")
+        w.writerows(all_tables)
+    if show:
+        print("Report saved: bench/report.md, bench/report.csv")
 
 
 # -----------------------------------------------------------------------------

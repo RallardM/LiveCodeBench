@@ -22,7 +22,11 @@ Every run asks you two things out loud, because it refuses to guess them:
 
 The answers decide the run folder (`bench\<model>-noharness\`, `bench\<model>-harness\`)
 and the report rows, so one model produces a clean, comparable pair of rows. Run the
-same line twice — once each way — and you have both.
+same line twice — once each way — and you have both. **Or add `--both` in your own
+window**: one command runs the scenario twice on identical problems (pass 1 answered
+*no*, pass 2 answered *yes*) and gives you both rows at once. A run without `--both`
+answers the harness question once and writes **one** row — that is normal, not a
+failure; the second row is the second answer, and `--both` is what asks for both.
 
 Shorter still, copy-paste only: [EXTRA_MINIMAL_BENCHMARK.md](EXTRA_MINIMAL_BENCHMARK.md).
 Long versions (only if you want the detail): [MINIMAL_BENCHMARK.md](MINIMAL_BENCHMARK.md),
@@ -100,19 +104,34 @@ plus `--harness no` keeps it out of your real model's folders. Clean up after:
 ## Step 4 (hours, resumable): the real score
 
 ```powershell
-.venv\Scripts\python.exe lcb_bench.py --speed-probe --random-sample 100 --workers 1 --max-tokens 16384 --eval-workers 8
+.venv\Scripts\python.exe lcb_bench.py --speed-probe --random-sample 100 --hardest 25 --workers 1 --max-tokens 16384 --eval-workers 8 --both
 ```
 
 **Q1** (the name): press Enter to take the model id the server reports, or type your
-own label — a bare `1`/`2`/`3` is refused, those are answers to Q2. **Q2** (harness):
-answer `1`, because this window is yours and nothing else is on the server (answer `2`
-somewhere else and it asks *which* harness, with the address it knows on the `[1]`
-line — the agent that started the window, or the one your earlier runs used, so Enter
-is enough; `[2]` takes a new address or a name). Same 100
-problems for every model → comparable. Ctrl+C, a crash or a server restart are cheap:
-**rerun the exact same command**, it skips what is finished. Ctrl+C at one of these
-questions stops before anything is started, with advice instead of a traceback. Keep
-the flags you started with (they are what gets recorded).
+own label — a bare `1`/`2`/`3` is refused, those are answers to Q2. Then it asks which
+harness shares the server for the second pass (`--both` runs the scenario twice on
+identical problems: pass 1 alone, pass 2 with the chat working) and tells you to close
+the chat while pass 1 runs. `[1]` is the address it knows — the agent that started the
+window, or the one your earlier runs used — so Enter is enough; `[2]` takes a new
+address or a name. Same problems for every model → comparable. Ctrl+C, a crash or a
+server restart are cheap: **rerun the exact same command**, it skips what is finished.
+Ctrl+C at one of these questions stops before anything is started, with advice instead
+of a traceback. Keep the flags you started with (they are what gets recorded).
+
+`--random-sample 100 --hardest 25` is **one sample that covers every difficulty**: 25 of
+the 100 problems go to the hardest the release has (hard first, then the ones with the
+most test cases, then the newest contest) and the other 75 are spread evenly over
+easy / medium / hard — about 25 easy, 25 medium, 25 hard, 25 hardest, in one run of
+exactly 100 problems. The hardest tier is also scored by itself: a `hardest: …%` line
+under the score, and a `hardest` column in the report (its problem ids land in
+`bench\<run>\hardest_ids.json`). A plain `--random-sample 100` is easy-weighted enough
+that a strong model prints a clean 100%, which tells you nothing. Alone, `--hardest N`
+makes the run *be* those N problems. It changes `sample`, so old rows stay separate
+instead of mixing with the new one.
+
+While it runs you can press a key in that window and type: `bench>` answers between two
+problems, `help` lists what you can type (`list`, `delete 2`, `restore 1`, `report`,
+`status`, `quit`). Deleting never erases — the folder moves to `bench\_archive\`.
 
 12 h is long, so detach it — close the window, it keeps running. A detached run
 cannot answer questions, so say both answers in the command line instead
@@ -121,7 +140,7 @@ cannot answer questions, so say both answers in the command line instead
 ```powershell
 Start-Process -FilePath ".venv\Scripts\python.exe" -WorkingDirectory "B:\repos\MyProjects\_LiveCodeBench" `
   -RedirectStandardOutput "bench\long-run.out.log" -RedirectStandardError "bench\long-run.err.log" `
-  -ArgumentList "--speed-probe","--random-sample","100","--workers","1","--max-tokens","16384","--eval-workers","8","--harness","no"
+  -ArgumentList "--speed-probe","--random-sample","100","--hardest","25","--workers","1","--max-tokens","16384","--eval-workers","8","--harness","no"
 Get-Content bench\long-run.out.log -Wait -Tail 20
 ```
 
@@ -153,7 +172,10 @@ rule) and keep the same cap on every row you compare.
 .venv\Scripts\python.exe lcb_bench.py --report-only
 ```
 
-→ `bench\report.md` (and `report.csv`), best row first, one row per run:
+→ `bench\report.md` (and `report.csv`), best row first, one row per run. That file
+holds **every** run; a finished run itself prints only its own row (or the two rows of
+a `--both` pair) and points here, because a table that grows every time is not a
+result. It looks like this:
 
 ```
 run                             model                                       harness  test  scenario  SCORE  problems  n  cap    trunc%  when-complete ...
@@ -177,6 +199,33 @@ match (`test`: `slow` = main run, `fast` = the two optional quick tests, see
 [EXTRA_MINIMAL_BENCHMARK.md](EXTRA_MINIMAL_BENCHMARK.md)). To
 re-grade stored answers without regenerating:
 `--name RUN-NAME --skip-generate --skip-eval --random-sample 100`.
+
+## Taking a score out of the report
+
+A run that was cut short, or a smoke run that landed in the table, is one row you
+have to sit past. `--manage` opens the bench console: the runs listed with numbers,
+and commands to take one out or put it back — no server, no model, no run needed.
+The same commands work *during* a run: press a key in its window and `bench>` answers
+between two problems.
+
+```powershell
+.venv\Scripts\python.exe lcb_bench.py --manage
+```
+
+```
+Runs in the report:
+  1  qwen38-flash-next-q2-harness        73.0%  slow codegen  yes  100  d46433bd9f02  2026-09-23
+  2  qwen38-flash-next-q2-noharness      69.0%  slow codegen  no   100  d46433bd9f02  2026-09-24
+help  list [archive]  delete <number|name>  restore <number|name>  report  status  quit
+```
+
+`delete 2` takes run 2 out of the report; `restore 1` brings it back. Nothing is ever
+erased — a deleted run moves to `bench\_archive\<stamp>__<folder>` and comes back from
+there. The current run (marked `*`) refuses to be deleted while it is writing.
+
+Same thing in one line, for scripts: `--list-runs`, `--delete-run 2`,
+`--delete-run qwen38-flash-next-q2-noharness`, `--restore-run 1`. A name has to
+identify one run; a prefix matching several is refused, not guessed.
 
 ## With the harness or without it
 
@@ -209,7 +258,9 @@ offers — in a window's questions that is choice `[2]`.
 
 That is exactly one command per test, twice: once answered in your window (`1`),
 once declared from the chat. Each answer gets its own folder and its own report row
-(`...-noharness`, `...-harness`), so the two never overwrite each other.
+(`...-noharness`, `...-harness`), so the two never overwrite each other. `--both` in
+your own window does those two passes back to back in one command and prints the pair
+together at the end.
 
 ## Flags you may actually need
 
@@ -221,6 +272,7 @@ once declared from the chat. Each answer gets its own folder and its own report 
 | `--limit N` | first N problems only (quick check) |
 | `--workers N` | concurrent requests; 1 for a `-np 1` server, = llama-server `--parallel` otherwise |
 | `--random-sample 100` | the fixed shared 100-problem set for comparable scores |
+| `--hardest N` | give N slots of the run to the hardest problems the release has (hard first, then most test cases, then newest). With `--random-sample 100` the run stays exactly 100 problems: N hardest + the rest spread evenly over easy/medium/hard. Alone the run IS those N; with `--limit` it is ignored. Stops a strong model printing a meaningless 100% off an easy-weighted sample; it changes `sample`, so old rows stay separate |
 | `--extra-body JSON` | model-specific request extras, e.g. thinking off: `'{"chat_template_kwargs":{"enable_thinking":false}}'` (flag name differs per family) |
 | `--difficulty easy\|medium\|hard` | subset |
 | `--skip-generate` / `--skip-eval` | re-grade what you have / generate only |
@@ -228,6 +280,8 @@ once declared from the chat. Each answer gets its own folder and its own report 
 | `--harness-note "ADDRESS"` | only when the harness is *not* the one it offers: say which it was (address preferred). The bench pings an address at the start and end of the run and saves the result as evidence in `_summary.json` (`harness_probe`). A name or path is stored as text only, nothing is opened. An address you use is remembered in `bench\harness-address.json`, so the next run offers it as choice `[1]` |
 | `--set-harness yes\|no` | backfill the answer for a run that never gave one (`--name` = its folder) |
 | `--scenario code_execution\|test_output_prediction` | the two optional fast tests (much quicker, narrower skills; the report flags them `test = fast`; each scenario keeps its own folder `-exec` / `-top`) |
+| `--both` | one command, both rows: the scenario runs twice on identical problems — pass 1 answered *no* (nothing else on the model server), pass 2 answered *yes* (the agent chat working). Asked once, up front. Never guessed, and the harness never sees a problem |
+| `--manage` / `--list-runs` / `--delete-run` / `--restore-run` | the bench console and its one-line forms: numbered list of runs, take one out of the report, bring it back. No server and no model needed; nothing is erased (moves to `bench\_archive\`) |
 
 ## When something is wrong
 
@@ -237,5 +291,8 @@ once declared from the chat. Each answer gets its own folder and its own report 
 | `ConnectionError` / refused | server not up, or wrong `--base-url` |
 | generations stop mid-run | server restarted or OOM — rerun the same command, it resumes |
 | score 0, everything fails | check answers in `bench\<run>\generations.jsonl`; try `--extra-body` to disable thinking |
+| only **one** row appeared, you expected two | normal: one run answers the harness question once and writes one row. `--both` asks for both answers and writes both rows |
+| SCORE came out **100%** | the sample was too small or too easy for that model — read the easy/medium/hard split and the `hardest` line, then rerun the same line with `--random-sample 100 --hardest 25` in it. The bench says this out loud rather than letting the 100 stand |
+| old rows keep showing in the print | they are in `report.md` on purpose; a run prints only its own row(s). Take a run out with `--delete-run` (or `delete` in the console) |
 | `trunc%` high | raise `--max-tokens` (respect `-c`), keep the cap identical across models |
 | It asks the label / harness question where you cannot type | Fine in a normal PowerShell (it answers); detached, piped or agent shells cannot, so pass `--name LABEL` and `--harness yes\|no` in the command. A run that answers nothing is recorded `harness = unknown` |
