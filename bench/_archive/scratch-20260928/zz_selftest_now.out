@@ -1,0 +1,35 @@
+﻿hi
+[OK ] stdio good: got [True] want [True] (0.3s)
+      meta: code=None msg=None
+[OK ] stdio wrong: got [False] want [False] (0.2s)
+      meta: code=-2 msg='Wrong answer at line 0'
+[OK ] stdio infinite loop (watchdog): got [False] want [False] (5.3s)
+      meta: code=-3 msg='Time Limit Exceeded (watchdog)'
+[OK ] stdio runtime error: got [False] want [False] (0.2s)
+      meta: code=-4 msg='Runtime Error'
+[OK ] call good: got [True] want [True] (0.2s)
+      meta: code=None msg=None
+[OK ] call wrong: got [False] want [False] (0.2s)
+      meta: code=-2 msg='Wrong Answer'
+[OK ] call missing function: got [False] want [False] (0.2s)
+      meta: code=-4 msg='Function Not Found'
+[OK ] mixed multi-sample: got [True, False, False] want [True, False, False] (5.7s)
+      meta: code=None msg=None
+      meta: code=-2 msg='Wrong answer at line 0'
+      meta: code=-3 msg='Time Limit Exceeded (watchdog)'
+[OK ] exec scenario (numpy/pandas warm child): got [True, False, False] skipped=[False, False, True] want [True, False, False] (2.8s)
+[OK ] top scenario: got [True, False, True] want [True, False, True]
+[OK ] exec bundle (all-or-nothing + per-call sub): got [True, False, False, False] skipped=[False, False, False, True] want [True, False, False, False] sub0=[True, True] sub1=[True, False]
+[OK ] top bundle (all-or-nothing): got [True, False, False] want [True, False, False]
+[OK ] execb in-order block: got ['6', '5'] want ['6', '5']
+[OK ] execb matched by call text: got ['6', '5'] want ['6', '5']
+[OK ] execb cot block: got ['6', '5'] want ['6', '5']
+[OK ] execb missing stays empty: got ['6', ''] want ['6', '']
+[OK ] topb assert lines: got ['assert f(3) == 6', 'assert g(2) == 7'] want ['assert f(3) == 6', 'assert g(2) == 7']
+[OK ] bundle chunking is deterministic and drops the leftover of a question (5+3 rows -> 3 pairs)
+[OK ] exec-extract direct: got '6' want '6'
+[OK ] exec-extract cot: got '42' want '42'
+[OK ] top-extract assert line: got 'assert func(1) == 2' want 'assert func(1) == 2'
+[OK ] top-extract fence: got 'assert func(1) == 2' want 'assert func(1) == 2'
+
+Self-test: PASSED

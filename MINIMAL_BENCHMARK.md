@@ -225,18 +225,35 @@ tier)`.
 **Why `--hardest 25` is in that line.** `--random-sample 100` is stratified, and on
 the code-generation release that means roughly 31 easy / 36 medium / 33 hard. A good
 model clears the easy and medium ones and prints a soft number, so `--hardest 25` takes
-25 of the sample's 100 slots for the hardest problems the release has (hard first, then
-the ones with the most test cases, then the newest contest) and spreads the other 75
-evenly over the difficulties — about 25 easy, 25 medium, 25 hard, 25 hardest, in one run
-of exactly 100 problems. The tier is also scored by itself: the results gain a line
-`hardest: 8.00%  (25 problems of the --hardest tier)`, the report gains a `hardest`
-column, and `bench\<run>\hardest_ids.json` keeps those ids. Alone, `--hardest N` makes
-the run *be* those N problems; with `--limit` it is ignored, because the limit already
-says which problems to run. It changes the `sample` hash, so the old rows stay separate
-and comparable on their own terms instead of mixing. Resuming a run keeps its saved
-sample (`sample_ids.json` plus `hardest_ids.json`) — the picks do not move underneath a
-half-finished run. A run that scores 100% on a small or easy-weighted sample says so out
-loud instead of letting the number stand on its own.
+25 of the sample's 100 slots for the hardest problems the release has (the dataset's own
+hard label first, then the newest contest, then the ones with the most test cases) and
+spreads the other 75 evenly over the difficulties — about 25 easy, 25 medium, 25 hard,
+25 hardest, in one run of exactly 100 problems. Newest first inside a tier because age
+was the strongest predictor we measured: the same model solved 50% of the *hard* problems
+published in 2023 and 12% of the *hard* ones from 2025. The tier is also scored by
+itself: the results gain a line `hardest: 8.00%  (25 problems of the --hardest
+tier)`, the report gains a `hardest` column, and `bench\<run>\hardest_ids.json` keeps
+those ids. Alone, `--hardest N` makes the run *be* those N problems; with `--limit` it is
+ignored, because the limit already says which problems to run. It changes the `sample`
+hash, so the old rows stay separate and comparable on their own terms instead of mixing.
+Resuming a run keeps its saved sample (`sample_ids.json` plus `hardest_ids.json`) — the
+picks do not move underneath a half-finished run. A run that scores 100% on a small or
+easy-weighted sample says so out loud instead of letting the number stand on its own.
+
+**When one tier is not enough, ask for shares.** `--mix 50/25/15/10` fills the whole
+sample by shares — 50% hardest, 25% hard, 15% medium, 10% easy — still exactly
+`--random-sample` problems, never one more, and it takes the place of `--hardest`. Add
+`--start-date 2025-01-01` and the sample can only hold contests too new to have been
+memorised; that pair is what keeps a strong model off 100% on the long test. If the
+release cannot fill a share, the run prints which one fell short
+(`got 50 hardest, 9/25 hard`) and refills those slots with the best that is left rather
+than quietly taking an easy problem. `--pool-info --scenario <name>` answers the same
+question before any GPU time is spent: rows, distinct questions, labels, date range, what
+a mix can fill, and — for the fast scenarios — why their 100% is a ceiling check. It is
+not rhetoric: the exec release is 479 rows built from **92 distinct questions**, all from
+seven months of 2023, and the 60 hardest rows of it went **100%** on this machine; the
+top release went 95% on its 60 hardest. Only the long test (1055 problems, 350 flagged
+hard, contests up to 2025-04-06) ranks models.
 
 **Run it detached** so a closed window does not kill a 12-hour run. Nothing can be
 asked there, so the label and the harness answer go in the argument list:
@@ -259,11 +276,11 @@ its own run folder automatically (`-exec`, `-top` appended to your label), so
 they never disturb the code-generation run: no `--name` juggling needed.
 
 ```powershell
-# mental execution: predict what a given function call returns (479 items)
-.venv\Scripts\python.exe lcb_bench.py --scenario code_execution --speed-probe --random-sample 100 --hardest 25 --workers 1 --max-tokens 16384 --eval-workers 8 --both
+# mental execution: ONE answer = K programs x one call each, all-or-nothing (479 rows -> 151 items at K=3)
+.venv\Scripts\python.exe lcb_bench.py --scenario code_execution --bundle 3 --random-sample 100 --hardest 25 --speed-probe --workers 1 --max-tokens 16384 --eval-workers 8 --both
 
-# test-output prediction: write the full assert f(...) == <output> (442 items)
-.venv\Scripts\python.exe lcb_bench.py --scenario test_output_prediction --speed-probe --random-sample 100 --hardest 25 --workers 1 --max-tokens 16384 --eval-workers 8 --both
+# test-output prediction: ONE answer = K tests of the same problem, all right or the item fails (442 rows -> 183 items at K=2)
+.venv\Scripts\python.exe lcb_bench.py --scenario test_output_prediction --bundle 2 --random-sample 100 --hardest 25 --speed-probe --workers 1 --max-tokens 16384 --eval-workers 8 --both
 ```
 
 Without `--both` each of these answers the harness question once and writes **one**
@@ -271,19 +288,59 @@ row — that is the shape of a single run, not a lost second half. The harness n
 sees a problem in either pass: these scenarios are scored by running the model's own
 answer against the dataset's tests.
 
-A word on the numbers here: the exec/top releases are easier for a strong model than
-code generation, so a clean 100% on `code_execution` is a normal outcome and says more
-about the scenario than about the model. The commands above already carry
-`--hardest 25`, and for exec that tier honestly has to say
-`25 hardest (9 hard, 16 medium)` — the unfiltered exec pool only holds **9 problems
-flagged `hard`**, so the rest of the tier is the meatiest mediums. Read the difficulty
-split and the `hardest` line, not just the headline.
+A word on the numbers here: these two releases cannot be made hard by sampling, because
+there is barely anything in them to sample. The exec release is **479 rows built out of
+92 distinct questions**, all from seven months of 2023 (`--pool-info` prints that, with
+no model and no generation), and only **9** of those rows carry the dataset's `hard`
+flag — so a `--hardest 25` tier there is 9 hard plus the meatiest mediums. Measured on
+this machine: a 100-row exec sample went 98% (Q2_K) and 100% (IQ4_XS), and the **60
+hardest rows of that release went 100%**, tier included; the 60 hardest `top` rows came
+out at 95%. Anything at that level is a **ceiling check** — can the model evaluate a
+small function in its head and answer in the asked format — and a run says exactly that
+under its own score once a fast scenario reaches 90%, together with the pool facts and
+the command to run instead. Read the difficulty split and the `hardest` line, not just
+the headline; rank models on `code_generation`.
 
-*Not scored for your models yet* — the graders are ports of the official ones,
-and both have been run end-to-end here on 2-problem samples
-(generation → extraction → grading → summary, all green), but no 100-problem
-fast run has been done. Run one and check the printed `problems` count looks
-sane (100) before trusting the number.
+**That is exactly why the fast commands above carry `--bundle`.** There is no harder
+*sample* of these pools — so `--bundle K` makes the *answer* harder instead: K calls go
+into one prompt and the item is graded **all-or-nothing**, every one of the K outputs
+right or it fails. A model right on `p` of the single calls lands near **p^K** per item,
+which turns the flat 100% ceiling into a slope with a dial: at a 95% per-call rate,
+K=2 scores ≈ 90%, K=3 ≈ 86%, K=4 ≈ 81%. Nothing leaves the dataset — exec rows are one
+(program, call) pair each, all 479 codes different, so an exec bundle is simply K of
+those pairs answered in one go, and a top bundle is K tests of the same problem. The
+prompt style and the grader are the same; each call's answer is matched back by its call
+text, and a missing answer is a miss. `--random-sample` then counts **items**
+(`--bundle 4 --random-sample 40` = 40 answers × 4 calls = 160 calls), the score line
+gains `per-call: …% over N single calls inside the K-call items`, and the report marks
+the row `xK` in its `bundle` column — those rows compare only with the same bundle size.
+The pools cap the knob and `--pool-info` prints the ceiling before any GPU time: exec
+holds **233 items of 2 / 151 of 3 / 76 of 4 / 74 of 5 / 71 of 6**, top **183 of 2 /
+77 of 3**. `--bundle` combines with `--mix`, `--hardest`, `--start-date`, `--both` and
+`--harness`; `--bundle 1` (the default) is the old one-call-per-row mode, whose rows
+stay comparable among themselves. Measured on this machine with these very runs: on
+IQ4_XS — the quant that prints 100% on plain fast exec — exec `--bundle 4
+--random-sample 40` **held 100%**, per-call 100% over all 160 calls (no exponent can
+lower a number with no misses, so the ratchet switched to coverage mode); top
+`--bundle 2 --random-sample 24` came out **95.83%**, and its ratchet asked for K=3.
+
+**The harden ratchet — never let a run print a smiling 100%.** Any fast run scoring
+≥ 90% (99%+ on the long test; move the bar with `--harden-target PCT`) ends by printing
+the exact next command that can be hard for *this* model, computed from what it just
+measured. With a per-call rate `p` below 1 it solves `p**K ≤ target` for the smallest K
+the pool can supply; at exactly 100% no exponent helps, so it switches to coverage: the
+K whose items touch the most calls the release holds (`--bundle 6 --random-sample 71`
+covers 426 of the 479 exec calls), because a hidden miss cannot fail a bundle it was not
+put into. On code_generation the ratchet keeps pointing at `--mix` + `--start-date`,
+where the headroom is real and measured: the same model that sweeps exec sits at
+**40–50%** on `--mix 50/25/15/10 --start-date 2025-01-01`.
+
+*Coverage of the fast scenarios here* — the graders are ports of the official ones, and
+all three scenarios have been run end-to-end here (generation → extraction → grading →
+summary). `code_execution` at 100 problems for two quants and at 60 hardest rows, and
+bundled 40 items × K=4 (100%, 160 calls); `test_output_prediction` at 60 hardest rows
+(95%), bundled 24 items × K=2 (95.8%), not yet as a plain 100-row sample.
+Check the printed `problems` count looks sane (100) before trusting a number.
 
 ## 4. Compare all your models
 
@@ -303,7 +360,8 @@ qwen38-flash-next-q2-noharness  unsloth/Qwen3.8-Flash-Next-GGUF:UD-Q2_K_XL  no  
 that run — so a row always says which model it is, never a placeholder name.
 
 Rows are directly comparable **only** when `test` / `scenario` / `problems` / `n` /
-`cap` / `sample` match. To re-score without regenerating anything:
+`bundle` / `cap` / `sample` match (`bundle` = `xK` on fast runs made with `--bundle K`,
+`-` otherwise). To re-score without regenerating anything:
 `--skip-generate` (reads the stored answers, re-runs the grader).
 
 ## 4b. Take a score out of the table
@@ -344,7 +402,7 @@ must identify exactly one run; a prefix matching several is refused, not guessed
   add `--n 2` (2 samples per problem, SCORE becomes the average pass rate,
   ≈ ±3.1 % for 2× the time).
 * **`trunc%` is the budget trap, and `when-complete` is the escape hatch.**
-  `trunc%` is the share of answers cut off at `--max-tokens`; truncated answers
+  `trunc%` is the share of answers cut off at `--max-tokens`; a truncated answer
   auto-fail. On the Q2 run 29 % hit the 16,384 cap, and only **3 of those 29
   passed (10 %)** while **70 of the 71 complete answers passed (98.6 %)**. So
   `SCORE` 73.0 + `when-complete` 98.6 = *the model can code; it just rambles*.
@@ -421,7 +479,11 @@ model run is generating.
 | `--self-test` | check the evaluator works (no server, no datasets) |
 | `--report-only` | print the comparison table of every run (a run itself prints only its own row, or its pair) |
 | `--both` | one command, both rows: the scenario runs twice on identical problems — pass 1 answered *no* (nothing else on the model server), pass 2 answered *yes* (the agent chat working). Asked once up front; the harness never sees a problem |
-| `--hardest N` | give N slots of the run to the hardest problems the release has (hard, then most test cases, then newest). With `--random-sample 100` the run stays exactly 100 problems: N hardest + the rest spread evenly over easy/medium/hard; alone: the run is those N; with `--limit`: ignored. Changes `sample`, so old rows stay separate |
+| `--hardest N` | give N slots of the run to the hardest problems the release has (the dataset's own hard label first, then newest contest, then biggest). With `--random-sample 100` the run stays exactly 100 problems: N hardest + the rest spread evenly over easy/medium/hard; alone: the run is those N; with `--limit`: ignored. Changes `sample`, so old rows stay separate |
+| `--mix 50/25/15/10` | fill the whole sample by shares instead of taking one `--hardest` tier: 50% hardest, 25% hard, 15% medium, 10% easy. Same total as `--random-sample` (never added on top), takes the place of `--hardest`, needs `--random-sample`. Long form `--mix hardest=50,hard=25,medium=15,easy=10`. A share the release cannot fill is printed as short and refilled with the best that is left. Changes `sample` |
+| `--pool-info` | print what the loaded pool holds — rows, distinct questions, labels, date range, sizes, which shares a `--mix` can fill, and what `--bundle` sizes it can supply — plus the verdict on whether that scenario can discriminate at all. No model, no generation, no run |
+| `--bundle K` | fast scenarios only: every scored item = K calls answered in ONE go, all-or-nothing (item pass ≈ per-call pass^K — the headroom dial for pools that saturate). `--random-sample` counts items then; the score line adds the per-call rate; the report column `bundle` shows `xK`. Ceilings per pool (from `--pool-info`): exec 233/151/76/74/71 items for K=2..6, top 183/77 for K=2/3. `--bundle 1` (default) = the classic one-call items |
+| `--harden-target PCT` | aim under PCT%: a run at or above it prints the exact next command that could push this model under it (bigger `--bundle` on the fast scenarios, `--mix`/`--start-date` on code_generation). Default bar: 90 fast, 99 long |
 | `--manage` | the bench console without a server or model: numbered runs, `delete <n>`, `restore <n>`, `report`, `status`. Same commands work during a run — press a key, `bench>` answers between two problems |
 | `--list-runs` / `--delete-run` / `--restore-run` | the console's one-line forms. A delete is a move into `bench\_archive\<stamp>__<folder>`, never an erase; the run in progress cannot be deleted |
 | `--harness yes\|no` | answer the harness question up front instead of at a prompt: was an agent chat sharing this model server? Required for detached/piped runs. Never guessed. `yes` also fills in the harness address it knows — this shell's own agent (`DSH_WEB_URL`), else the one your earlier runs used — and pings it |

@@ -1,0 +1,143 @@
+{
+  "name": "zz-bundle2-top-harness",
+  "model": "unsloth/Qwen3.8-Flash-Next-GGUF:UD-IQ4_XS",
+  "server_model": "unsloth/Qwen3.8-Flash-Next-GGUF:UD-IQ4_XS",
+  "harness": "yes",
+  "harness_note": "http://127.0.0.1:3080",
+  "harness_source": "--harness flag",
+  "harness_probe": {
+    "start": {
+      "target": "http://127.0.0.1:3080",
+      "checked_at": "2026-09-28T04:27:15",
+      "reachable": true,
+      "status": 401
+    },
+    "end": {
+      "target": "http://127.0.0.1:3080",
+      "checked_at": "2026-09-28T05:25:31",
+      "reachable": true,
+      "status": 401
+    }
+  },
+  "generated_at": "2026-09-28T05:25:31",
+  "config": {
+    "n": 1,
+    "temperature": 0.2,
+    "top_p": 0.95,
+    "max_tokens": 16384,
+    "release": "release_latest",
+    "start_date": null,
+    "end_date": null,
+    "difficulty": null,
+    "limit": null,
+    "random_sample": 24,
+    "hardest": null,
+    "mix": null,
+    "sample_note": null,
+    "extractor": "auto",
+    "eval_timeout": 6,
+    "scenario": "top",
+    "exec_cot": false,
+    "bundle": 2,
+    "problems_total": 24
+  },
+  "sample_hash": "76e0194692f2",
+  "counts": {
+    "easy": 8,
+    "hard": 4,
+    "medium": 12
+  },
+  "hardest_tier": null,
+  "bundle_tier": {
+    "k": 2,
+    "calls": 48,
+    "per_call_pass": 0.9583
+  },
+  "pool": {
+    "n": 183,
+    "questions": 182,
+    "labels": {
+      "easy": 63,
+      "medium": 91,
+      "hard": 29
+    },
+    "date_min": "2023-05-07",
+    "date_max": "2024-03-02",
+    "weight_min": 355,
+    "weight_median": 1027,
+    "weight_max": 2613,
+    "biggest": "2791#tb2c0",
+    "bundle_cap": {
+      "2": 183,
+      "3": 77,
+      "4": 1,
+      "5": 0,
+      "6": 0
+    },
+    "bundle_k": 2,
+    "raw_rows": 442,
+    "raw_questions": 182
+  },
+  "generation_stats": {
+    "generated": 24,
+    "failed_requests": 0,
+    "not_generated": 0,
+    "truncated_at_max_tokens": 1,
+    "truncated_pct": 4.2,
+    "problems_not_truncated": 23,
+    "pass_rate_when_not_truncated": 100.0,
+    "empty_outputs": 0
+  },
+  "score": 95.83,
+  "metrics": {
+    "pass@1": 0.9583333333333334
+  },
+  "metrics_by_difficulty": {
+    "easy": {
+      "pass@1": 1.0
+    },
+    "hard": {
+      "pass@1": 1.0
+    },
+    "medium": {
+      "pass@1": 0.9166666666666666
+    }
+  },
+  "speed": {
+    "total_generation_seconds": 3494.6,
+    "total_completion_tokens": 48125,
+    "mean_tokens_per_sec": 13.77,
+    "mean_seconds_per_problem": 145.6,
+    "avg_prompt_tokens": 353.0,
+    "avg_completion_tokens": 2005.0,
+    "prefill_tokens_per_sec": 47.3,
+    "decode_tokens_per_sec": 14.3,
+    "speed_probe": null
+  },
+  "per_problem_pass": {
+    "2727#tb2c0": 1.0,
+    "2754#tb2c0": 1.0,
+    "2755#tb2c0": 1.0,
+    "2779#tb2c0": 1.0,
+    "2800#tb2c0": 1.0,
+    "2816#tb2c0": 1.0,
+    "2817#tb2c0": 1.0,
+    "2832#tb2c0": 1.0,
+    "2839#tb2c0": 1.0,
+    "2883#tb2c0": 0.0,
+    "3019#tb2c0": 1.0,
+    "3031#tb2c0": 1.0,
+    "3032#tb2c0": 1.0,
+    "3033#tb2c0": 1.0,
+    "3047#tb2c0": 1.0,
+    "3172#tb2c0": 1.0,
+    "3196#tb2c0": 1.0,
+    "3227#tb2c0": 1.0,
+    "3242#tb2c0": 1.0,
+    "3262#tb2c0": 1.0,
+    "3269#tb2c0": 1.0,
+    "3292#tb2c0": 1.0,
+    "3308#tb2c0": 1.0,
+    "3331#tb2c0": 1.0
+  }
+}

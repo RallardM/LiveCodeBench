@@ -1,0 +1,116 @@
+{
+  "name": "zz-mix-exec-harness",
+  "model": "unsloth/Qwen3.8-Flash-Next-GGUF:UD-Q2_K_XL",
+  "server_model": "unsloth/Qwen3.8-Flash-Next-GGUF:UD-Q2_K_XL",
+  "harness": "yes",
+  "harness_note": "http://127.0.0.1:3080",
+  "harness_source": "--harness flag",
+  "harness_probe": {
+    "start": {
+      "target": "http://127.0.0.1:3080",
+      "checked_at": "2026-09-26T19:13:48",
+      "reachable": true,
+      "status": 401
+    },
+    "end": {
+      "target": "http://127.0.0.1:3080",
+      "checked_at": "2026-09-26T19:41:57",
+      "reachable": true,
+      "status": 401
+    }
+  },
+  "generated_at": "2026-09-26T19:41:57",
+  "config": {
+    "n": 1,
+    "temperature": 0.2,
+    "top_p": 0.95,
+    "max_tokens": 16384,
+    "release": "release_latest",
+    "start_date": null,
+    "end_date": null,
+    "difficulty": null,
+    "limit": null,
+    "random_sample": 10,
+    "hardest": null,
+    "mix": "50/25/15/10",
+    "sample_note": "mix 50/25/15/10: got 5 hardest, 2 hard, 2 medium, 1 easy; labels 1 easy, 7 hard, 2 medium",
+    "extractor": "auto",
+    "eval_timeout": 6,
+    "scenario": "exec",
+    "exec_cot": false,
+    "problems_total": 10
+  },
+  "sample_hash": "60bf18eca65a",
+  "counts": {
+    "easy": 1,
+    "hard": 7,
+    "medium": 2
+  },
+  "hardest_tier": {
+    "n": 5,
+    "pass@1": 1.0
+  },
+  "pool": {
+    "n": 479,
+    "questions": 92,
+    "labels": {
+      "easy": 216,
+      "medium": 254,
+      "hard": 9
+    },
+    "date_min": "2023-05-07",
+    "date_max": "2023-11-25",
+    "weight_min": 104,
+    "weight_median": 278,
+    "weight_max": 508,
+    "biggest": "2779#4"
+  },
+  "generation_stats": {
+    "generated": 10,
+    "failed_requests": 0,
+    "not_generated": 0,
+    "truncated_at_max_tokens": 0,
+    "truncated_pct": 0.0,
+    "problems_not_truncated": 10,
+    "pass_rate_when_not_truncated": 100.0,
+    "empty_outputs": 0
+  },
+  "score": 100.0,
+  "metrics": {
+    "pass@1": 1.0
+  },
+  "metrics_by_difficulty": {
+    "easy": {
+      "pass@1": 1.0
+    },
+    "hard": {
+      "pass@1": 1.0
+    },
+    "medium": {
+      "pass@1": 1.0
+    }
+  },
+  "speed": {
+    "total_generation_seconds": 1685.4,
+    "total_completion_tokens": 6015,
+    "mean_tokens_per_sec": 3.57,
+    "mean_seconds_per_problem": 168.5,
+    "avg_prompt_tokens": 458.0,
+    "avg_completion_tokens": 602.0,
+    "prefill_tokens_per_sec": 186.9,
+    "decode_tokens_per_sec": 18.2,
+    "speed_probe": null
+  },
+  "per_problem_pass": {
+    "2919#1": 1.0,
+    "2919#3": 1.0,
+    "2919#4": 1.0,
+    "3025#0": 1.0,
+    "3025#1": 1.0,
+    "3091#0": 1.0,
+    "3194#3": 1.0,
+    "3210#3": 1.0,
+    "3211#0": 1.0,
+    "3219#0": 1.0
+  }
+}

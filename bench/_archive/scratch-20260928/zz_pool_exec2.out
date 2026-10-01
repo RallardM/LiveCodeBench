@@ -1,0 +1,16 @@
+﻿python.exe : Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+At line:2 char:1
++ & .venv\Scripts\python.exe lcb_bench.py --pool-info --scenario code_e ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Warning: You ar...ster downloads.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+Pool for scenario code_execution (livecodebench/execution-v2), release release_latest:
+Loaded 479 problems (216 easy, 9 hard, 254 medium)
+   479 problems from 92 distinct questions  (5.2 rows per question: every row is ONE call, not the whole problem)
+   labels: 216 easy, 9 hard, 254 medium
+   dates: 2023-05-07 .. 2023-11-25  -> 1.9% of the pool is labelled hard
+   weight: median 278, biggest 508 (id 2779#4) - weight = test cases for code generation, characters of code / problem text for the fast scenarios
+   what --mix can fill: hardest takes from all 479, then 9 hard, 254 medium, 216 easy - a share bigger than that gets refilled from the other labels
+   --random-sample 100 --mix 50/25/15/10 here: mix 50/25/15/10: got 50 hardest, 9/25 hard, 15 medium, 10 easy; labels 10 easy, 9 hard, 81 medium - 16 slot(s) refilled with the best that was left: this pool cannot fill every tier asked for
+   verdict: every problem in this scenario is one call to one small function with a short answer. It is a ceiling check - can the model run code in its head and answer in the asked format - not a discrimination test. Rank models on code_generation, and pin the difficulty there with --hardest / --mix plus --start-date (the newest contests are the least memorised ones).

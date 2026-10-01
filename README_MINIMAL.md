@@ -119,15 +119,32 @@ Ctrl+C at one of these questions stops before anything is started, with advice i
 of a traceback. Keep the flags you started with (they are what gets recorded).
 
 `--random-sample 100 --hardest 25` is **one sample that covers every difficulty**: 25 of
-the 100 problems go to the hardest the release has (hard first, then the ones with the
-most test cases, then the newest contest) and the other 75 are spread evenly over
-easy / medium / hard — about 25 easy, 25 medium, 25 hard, 25 hardest, in one run of
-exactly 100 problems. The hardest tier is also scored by itself: a `hardest: …%` line
-under the score, and a `hardest` column in the report (its problem ids land in
-`bench\<run>\hardest_ids.json`). A plain `--random-sample 100` is easy-weighted enough
-that a strong model prints a clean 100%, which tells you nothing. Alone, `--hardest N`
-makes the run *be* those N problems. It changes `sample`, so old rows stay separate
-instead of mixing with the new one.
+the 100 problems go to the hardest the release has (the ones the dataset itself flags
+hard first, then the newest contest, then the most test cases) and the other 75 are
+spread evenly over easy / medium / hard — about 25 easy, 25 medium, 25 hard, 25 hardest,
+in one run of exactly 100 problems. Newest first inside a tier, because in our runs the
+age of a problem was the strongest predictor of a pass: the same model solved 50% of the
+hard problems published in 2023 and 12% of the hard ones from 2025. The hardest tier is
+also scored by itself: a `hardest: …%` line under the score, and a `hardest` column in
+the report (its problem ids land in `bench\<run>\hardest_ids.json`). A plain
+`--random-sample 100` is easy-weighted enough that a strong model prints a clean 100%,
+which tells you nothing. Alone, `--hardest N` makes the run *be* those N problems. It
+changes `sample`, so old rows stay separate instead of mixing with the new one.
+
+A model that still clears that gets its sample pinned to the hard end by shares
+instead: `--mix 50/25/15/10` — 50% hardest, 25% hard, 15% medium, 10% easy, still
+exactly `--random-sample` problems and never added on top — and `--start-date
+2025-01-01` on top of it, so the sample only holds contests too new to be in anyone's
+training data. If a tier cannot be filled from the release, the run says so and refills
+the slot with the best that is left. `--pool-info --scenario <name>` prints what a pool
+can actually fill, with no model and no generation, and why a fast-scenario 100% is a
+ceiling check rather than a score: the exec release is 479 rows covering only 92
+distinct questions, all from seven months of 2023, and the 60 hardest of them went
+100%. Those same facts — plus the exact next harder command for your score, the
+harden ratchet — are printed under any run that saturates; on the fast scenarios the
+lever is `--bundle K` (K calls per answer, all-or-nothing; measured on the quant that
+saturates exec: it **held 100% even at K=4**, 160 calls), since no sampling of
+theirs can be hard.
 
 While it runs you can press a key in that window and type: `bench>` answers between two
 problems, `help` lists what you can type (`list`, `delete 2`, `restore 1`, `report`,
@@ -272,7 +289,11 @@ together at the end.
 | `--limit N` | first N problems only (quick check) |
 | `--workers N` | concurrent requests; 1 for a `-np 1` server, = llama-server `--parallel` otherwise |
 | `--random-sample 100` | the fixed shared 100-problem set for comparable scores |
-| `--hardest N` | give N slots of the run to the hardest problems the release has (hard first, then most test cases, then newest). With `--random-sample 100` the run stays exactly 100 problems: N hardest + the rest spread evenly over easy/medium/hard. Alone the run IS those N; with `--limit` it is ignored. Stops a strong model printing a meaningless 100% off an easy-weighted sample; it changes `sample`, so old rows stay separate |
+| `--hardest N` | give N slots of the run to the hardest problems the release has (the dataset's own hard label first, then the newest contest, then the most test cases). With `--random-sample 100` the run stays exactly 100 problems: N hardest + the rest spread evenly over easy/medium/hard. Alone the run IS those N; with `--limit` it is ignored. Stops a strong model printing a meaningless 100% off an easy-weighted sample; it changes `sample`, so old rows stay separate |
+| `--mix 50/25/15/10` | fill the whole sample by shares — 50% hardest, 25% hard, 15% medium, 10% easy — instead of taking one `--hardest` tier. Same total as `--random-sample`, never added on top; takes the place of `--hardest` and needs `--random-sample`. Also spelled `--mix hardest=50,hard=25,medium=15,easy=10`. A tier the release cannot fill is reported and refilled with the best that is left, not with an easy problem |
+| `--pool-info` | no model, no generation: prints what the pool actually holds (rows, distinct questions, labels, date range, sizes), which shares a `--mix` can fill, what `--bundle` sizes it could supply, and for the fast scenarios why a 100% there is a ceiling check instead of a score |
+| `--bundle K` | fast scenarios only: one scored item = K calls answered in ONE prompt, all right or the item fails (item pass ≈ per-call pass^K — the headroom dial when a pool saturates at 100%). `--random-sample` counts items; the score line prints the per-call rate too; report column `bundle` shows `xK`. Ceilings from `--pool-info`: exec 233/151/76/74/71 items for K=2..6, top 183/77 for K=2/3. Default `--bundle 1` = classic one-call rows |
+| `--harden-target PCT` | aim under PCT%: a saturated run prints the exact next command that can be hard for this model (bigger `--bundle` on the fast scenarios; `--mix` + `--start-date` on code_generation). Default bar 90 fast / 99 long |
 | `--extra-body JSON` | model-specific request extras, e.g. thinking off: `'{"chat_template_kwargs":{"enable_thinking":false}}'` (flag name differs per family) |
 | `--difficulty easy\|medium\|hard` | subset |
 | `--skip-generate` / `--skip-eval` | re-grade what you have / generate only |
@@ -292,7 +313,7 @@ together at the end.
 | generations stop mid-run | server restarted or OOM — rerun the same command, it resumes |
 | score 0, everything fails | check answers in `bench\<run>\generations.jsonl`; try `--extra-body` to disable thinking |
 | only **one** row appeared, you expected two | normal: one run answers the harness question once and writes one row. `--both` asks for both answers and writes both rows |
-| SCORE came out **100%** | the sample was too small or too easy for that model — read the easy/medium/hard split and the `hardest` line, then rerun the same line with `--random-sample 100 --hardest 25` in it. The bench says this out loud rather than letting the 100 stand |
+| SCORE came out **100%** | the run says what it means, and prints the next harder command on its own (the harden ratchet). On `exec` / `top` it is a **ceiling check**, not a score (their releases are small, old, one-call rows — the 60 hardest exec rows went 100%): run them **bundled** (`--bundle 3` exec / `--bundle 2` top — K calls per answer, all-or-nothing, up to `--bundle 6`/`3`), and rank on `code_generation` with the difficulty pinned: `--random-sample 100 --mix 50/25/15/10 --start-date 2025-01-01`. On `code_generation` a 100% means the sample was too small or too easy — read the easy/medium/hard split and the `hardest` line. `--pool-info --scenario <name>` shows what a pool can be sampled from (and its `--bundle` ceilings) before you spend GPU time |
 | old rows keep showing in the print | they are in `report.md` on purpose; a run prints only its own row(s). Take a run out with `--delete-run` (or `delete` in the console) |
 | `trunc%` high | raise `--max-tokens` (respect `-c`), keep the cap identical across models |
 | It asks the label / harness question where you cannot type | Fine in a normal PowerShell (it answers); detached, piped or agent shells cannot, so pass `--name LABEL` and `--harness yes\|no` in the command. A run that answers nothing is recorded `harness = unknown` |

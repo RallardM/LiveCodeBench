@@ -1,0 +1,4422 @@
+[
+{
+"qid": "2727#0",
+"difficulty": "easy",
+"date": "2023-05-13",
+"content_len": 524,
+"starter_len": 59,
+"input_len": 57,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2727#1",
+"difficulty": "easy",
+"date": "2023-05-13",
+"content_len": 524,
+"starter_len": 59,
+"input_len": 38,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2728#0",
+"difficulty": "medium",
+"date": "2023-05-13",
+"content_len": 401,
+"starter_len": 59,
+"input_len": 44,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "2728#1",
+"difficulty": "medium",
+"date": "2023-05-13",
+"content_len": 401,
+"starter_len": 59,
+"input_len": 5,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2730#0",
+"difficulty": "medium",
+"date": "2023-05-13",
+"content_len": 361,
+"starter_len": 61,
+"input_len": 9,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "2730#1",
+"difficulty": "medium",
+"date": "2023-05-13",
+"content_len": 361,
+"starter_len": 61,
+"input_len": 11,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "2754#0",
+"difficulty": "medium",
+"date": "2023-05-27",
+"content_len": 389,
+"starter_len": 55,
+"input_len": 21,
+"out_len": 4,
+"out_kind": "int"
+},
+{
+"qid": "2754#1",
+"difficulty": "medium",
+"date": "2023-05-27",
+"content_len": 389,
+"starter_len": 55,
+"input_len": 12,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "2755#0",
+"difficulty": "medium",
+"date": "2023-05-27",
+"content_len": 363,
+"starter_len": 70,
+"input_len": 40,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2755#1",
+"difficulty": "medium",
+"date": "2023-05-27",
+"content_len": 363,
+"starter_len": 70,
+"input_len": 34,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2756#0",
+"difficulty": "easy",
+"date": "2023-05-27",
+"content_len": 590,
+"starter_len": 66,
+"input_len": 11,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2756#1",
+"difficulty": "easy",
+"date": "2023-05-27",
+"content_len": 590,
+"starter_len": 66,
+"input_len": 11,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2757#0",
+"difficulty": "hard",
+"date": "2023-06-04",
+"content_len": 335,
+"starter_len": 82,
+"input_len": 12,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "2757#1",
+"difficulty": "hard",
+"date": "2023-06-04",
+"content_len": 335,
+"starter_len": 82,
+"input_len": 11,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2777#0",
+"difficulty": "easy",
+"date": "2023-05-07",
+"content_len": 523,
+"starter_len": 73,
+"input_len": 15,
+"out_len": 17,
+"out_kind": "nested1"
+},
+{
+"qid": "2777#1",
+"difficulty": "easy",
+"date": "2023-05-07",
+"content_len": 523,
+"starter_len": 73,
+"input_len": 15,
+"out_len": 17,
+"out_kind": "nested1"
+},
+{
+"qid": "2779#0",
+"difficulty": "medium",
+"date": "2023-05-07",
+"content_len": 561,
+"starter_len": 80,
+"input_len": 42,
+"out_len": 15,
+"out_kind": "nested1"
+},
+{
+"qid": "2779#1",
+"difficulty": "medium",
+"date": "2023-05-07",
+"content_len": 561,
+"starter_len": 80,
+"input_len": 15,
+"out_len": 3,
+"out_kind": "nested1"
+},
+{
+"qid": "2784#0",
+"difficulty": "hard",
+"date": "2023-05-13",
+"content_len": 465,
+"starter_len": 54,
+"input_len": 9,
+"out_len": 3,
+"out_kind": "int"
+},
+{
+"qid": "2784#1",
+"difficulty": "hard",
+"date": "2023-05-13",
+"content_len": 465,
+"starter_len": 54,
+"input_len": 9,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2785#0",
+"difficulty": "easy",
+"date": "2023-06-04",
+"content_len": 502,
+"starter_len": 66,
+"input_len": 12,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2785#1",
+"difficulty": "easy",
+"date": "2023-06-04",
+"content_len": 502,
+"starter_len": 66,
+"input_len": 12,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2785#2",
+"difficulty": "easy",
+"date": "2023-06-04",
+"content_len": 502,
+"starter_len": 66,
+"input_len": 15,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2786#0",
+"difficulty": "medium",
+"date": "2023-06-10",
+"content_len": 439,
+"starter_len": 65,
+"input_len": 7,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2786#1",
+"difficulty": "medium",
+"date": "2023-06-10",
+"content_len": 439,
+"starter_len": 65,
+"input_len": 6,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2786#2",
+"difficulty": "medium",
+"date": "2023-06-10",
+"content_len": 439,
+"starter_len": 65,
+"input_len": 9,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2791#0",
+"difficulty": "easy",
+"date": "2023-05-14",
+"content_len": 1232,
+"starter_len": 67,
+"input_len": 3,
+"out_len": 6,
+"out_kind": "nested1"
+},
+{
+"qid": "2791#1",
+"difficulty": "easy",
+"date": "2023-05-14",
+"content_len": 1232,
+"starter_len": 67,
+"input_len": 3,
+"out_len": 9,
+"out_kind": "nested1"
+},
+{
+"qid": "2792#0",
+"difficulty": "medium",
+"date": "2023-05-14",
+"content_len": 563,
+"starter_len": 67,
+"input_len": 9,
+"out_len": 4,
+"out_kind": "bool"
+},
+{
+"qid": "2792#1",
+"difficulty": "medium",
+"date": "2023-05-14",
+"content_len": 563,
+"starter_len": 67,
+"input_len": 6,
+"out_len": 4,
+"out_kind": "bool"
+},
+{
+"qid": "2792#2",
+"difficulty": "medium",
+"date": "2023-05-14",
+"content_len": 563,
+"starter_len": 67,
+"input_len": 6,
+"out_len": 5,
+"out_kind": "bool"
+},
+{
+"qid": "2800#0",
+"difficulty": "easy",
+"date": "2023-05-21",
+"content_len": 409,
+"starter_len": 44,
+"input_len": 10,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2800#1",
+"difficulty": "easy",
+"date": "2023-05-21",
+"content_len": 409,
+"starter_len": 44,
+"input_len": 7,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2802#0",
+"difficulty": "medium",
+"date": "2023-05-21",
+"content_len": 324,
+"starter_len": 51,
+"input_len": 2,
+"out_len": 3,
+"out_kind": "int"
+},
+{
+"qid": "2802#1",
+"difficulty": "medium",
+"date": "2023-05-21",
+"content_len": 324,
+"starter_len": 51,
+"input_len": 2,
+"out_len": 4,
+"out_kind": "int"
+},
+{
+"qid": "2808#0",
+"difficulty": "hard",
+"date": "2023-06-18",
+"content_len": 505,
+"starter_len": 71,
+"input_len": 25,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2808#1",
+"difficulty": "hard",
+"date": "2023-06-18",
+"content_len": 505,
+"starter_len": 71,
+"input_len": 25,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2810#0",
+"difficulty": "medium",
+"date": "2023-06-11",
+"content_len": 573,
+"starter_len": 59,
+"input_len": 13,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "2810#1",
+"difficulty": "medium",
+"date": "2023-06-11",
+"content_len": 573,
+"starter_len": 59,
+"input_len": 11,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2811#0",
+"difficulty": "medium",
+"date": "2023-08-20",
+"content_len": 243,
+"starter_len": 53,
+"input_len": 3,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "2811#1",
+"difficulty": "medium",
+"date": "2023-08-20",
+"content_len": 243,
+"starter_len": 53,
+"input_len": 3,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2812#0",
+"difficulty": "easy",
+"date": "2023-07-09",
+"content_len": 361,
+"starter_len": 66,
+"input_len": 3,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2812#1",
+"difficulty": "easy",
+"date": "2023-07-09",
+"content_len": 361,
+"starter_len": 66,
+"input_len": 3,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2816#0",
+"difficulty": "easy",
+"date": "2023-05-21",
+"content_len": 682,
+"starter_len": 57,
+"input_len": 7,
+"out_len": 7,
+"out_kind": "string"
+},
+{
+"qid": "2816#1",
+"difficulty": "easy",
+"date": "2023-05-21",
+"content_len": 682,
+"starter_len": 57,
+"input_len": 6,
+"out_len": 6,
+"out_kind": "string"
+},
+{
+"qid": "2816#2",
+"difficulty": "easy",
+"date": "2023-05-21",
+"content_len": 682,
+"starter_len": 57,
+"input_len": 7,
+"out_len": 7,
+"out_kind": "string"
+},
+{
+"qid": "2817#0",
+"difficulty": "medium",
+"date": "2023-05-28",
+"content_len": 468,
+"starter_len": 46,
+"input_len": 6,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2817#1",
+"difficulty": "medium",
+"date": "2023-05-28",
+"content_len": 468,
+"starter_len": 46,
+"input_len": 8,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2819#0",
+"difficulty": "easy",
+"date": "2023-05-28",
+"content_len": 115,
+"starter_len": 56,
+"input_len": 10,
+"out_len": 8,
+"out_kind": "string"
+},
+{
+"qid": "2819#1",
+"difficulty": "easy",
+"date": "2023-05-28",
+"content_len": 115,
+"starter_len": 56,
+"input_len": 5,
+"out_len": 5,
+"out_kind": "string"
+},
+{
+"qid": "2824#0",
+"difficulty": "easy",
+"date": "2023-06-10",
+"content_len": 450,
+"starter_len": 49,
+"input_len": 3,
+"out_len": 4,
+"out_kind": "bool"
+},
+{
+"qid": "2824#1",
+"difficulty": "easy",
+"date": "2023-06-10",
+"content_len": 450,
+"starter_len": 49,
+"input_len": 3,
+"out_len": 5,
+"out_kind": "bool"
+},
+{
+"qid": "2825#0",
+"difficulty": "easy",
+"date": "2023-06-04",
+"content_len": 451,
+"starter_len": 56,
+"input_len": 7,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2825#1",
+"difficulty": "easy",
+"date": "2023-06-04",
+"content_len": 451,
+"starter_len": 56,
+"input_len": 6,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2825#2",
+"difficulty": "easy",
+"date": "2023-06-04",
+"content_len": 451,
+"starter_len": 56,
+"input_len": 8,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2827#0",
+"difficulty": "hard",
+"date": "2023-05-27",
+"content_len": 489,
+"starter_len": 64,
+"input_len": 9,
+"out_len": 4,
+"out_kind": "bool"
+},
+{
+"qid": "2827#1",
+"difficulty": "hard",
+"date": "2023-05-27",
+"content_len": 489,
+"starter_len": 64,
+"input_len": 9,
+"out_len": 5,
+"out_kind": "bool"
+},
+{
+"qid": "2827#2",
+"difficulty": "hard",
+"date": "2023-05-27",
+"content_len": 489,
+"starter_len": 64,
+"input_len": 13,
+"out_len": 4,
+"out_kind": "bool"
+},
+{
+"qid": "2828#0",
+"difficulty": "medium",
+"date": "2023-06-11",
+"content_len": 689,
+"starter_len": 49,
+"input_len": 7,
+"out_len": 7,
+"out_kind": "string"
+},
+{
+"qid": "2828#1",
+"difficulty": "medium",
+"date": "2023-06-11",
+"content_len": 689,
+"starter_len": 49,
+"input_len": 7,
+"out_len": 7,
+"out_kind": "string"
+},
+{
+"qid": "2828#2",
+"difficulty": "medium",
+"date": "2023-06-11",
+"content_len": 689,
+"starter_len": 49,
+"input_len": 10,
+"out_len": 10,
+"out_kind": "string"
+},
+{
+"qid": "2831#0",
+"difficulty": "easy",
+"date": "2023-06-25",
+"content_len": 459,
+"starter_len": 63,
+"input_len": 12,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2831#1",
+"difficulty": "easy",
+"date": "2023-06-25",
+"content_len": 459,
+"starter_len": 63,
+"input_len": 12,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2832#0",
+"difficulty": "medium",
+"date": "2023-08-20",
+"content_len": 360,
+"starter_len": 72,
+"input_len": 20,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2832#1",
+"difficulty": "medium",
+"date": "2023-08-20",
+"content_len": 360,
+"starter_len": 72,
+"input_len": 20,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2833#0",
+"difficulty": "medium",
+"date": "2023-06-24",
+"content_len": 526,
+"starter_len": 104,
+"input_len": 37,
+"out_len": 6,
+"out_kind": "nested1"
+},
+{
+"qid": "2833#1",
+"difficulty": "medium",
+"date": "2023-06-24",
+"content_len": 526,
+"starter_len": 104,
+"input_len": 43,
+"out_len": 6,
+"out_kind": "nested1"
+},
+{
+"qid": "2834#0",
+"difficulty": "medium",
+"date": "2023-07-08",
+"content_len": 572,
+"starter_len": 105,
+"input_len": 32,
+"out_len": 12,
+"out_kind": "nested1"
+},
+{
+"qid": "2834#1",
+"difficulty": "medium",
+"date": "2023-07-08",
+"content_len": 572,
+"starter_len": 105,
+"input_len": 26,
+"out_len": 3,
+"out_kind": "nested1"
+},
+{
+"qid": "2837#0",
+"difficulty": "medium",
+"date": "2023-06-25",
+"content_len": 292,
+"starter_len": 67,
+"input_len": 4,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2837#1",
+"difficulty": "medium",
+"date": "2023-06-25",
+"content_len": 292,
+"starter_len": 67,
+"input_len": 3,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "2839#0",
+"difficulty": "hard",
+"date": "2023-06-11",
+"content_len": 410,
+"starter_len": 112,
+"input_len": 50,
+"out_len": 10,
+"out_kind": "nested1"
+},
+{
+"qid": "2839#1",
+"difficulty": "hard",
+"date": "2023-06-11",
+"content_len": 410,
+"starter_len": 112,
+"input_len": 44,
+"out_len": 9,
+"out_kind": "nested1"
+},
+{
+"qid": "2839#2",
+"difficulty": "hard",
+"date": "2023-06-11",
+"content_len": 410,
+"starter_len": 112,
+"input_len": 22,
+"out_len": 4,
+"out_kind": "nested1"
+},
+{
+"qid": "2844#0",
+"difficulty": "easy",
+"date": "2023-07-16",
+"content_len": 201,
+"starter_len": 56,
+"input_len": 12,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "2844#1",
+"difficulty": "easy",
+"date": "2023-07-16",
+"content_len": 201,
+"starter_len": 56,
+"input_len": 20,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "2845#0",
+"difficulty": "medium",
+"date": "2023-06-18",
+"content_len": 504,
+"starter_len": 64,
+"input_len": 12,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2845#1",
+"difficulty": "medium",
+"date": "2023-06-18",
+"content_len": 504,
+"starter_len": 64,
+"input_len": 12,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2847#0",
+"difficulty": "easy",
+"date": "2023-06-24",
+"content_len": 359,
+"starter_len": 71,
+"input_len": 30,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2847#1",
+"difficulty": "easy",
+"date": "2023-06-24",
+"content_len": 359,
+"starter_len": 71,
+"input_len": 18,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2847#2",
+"difficulty": "easy",
+"date": "2023-06-24",
+"content_len": 359,
+"starter_len": 71,
+"input_len": 12,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2848#0",
+"difficulty": "medium",
+"date": "2023-06-18",
+"content_len": 333,
+"starter_len": 55,
+"input_len": 9,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2848#1",
+"difficulty": "medium",
+"date": "2023-06-18",
+"content_len": 333,
+"starter_len": 55,
+"input_len": 9,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2849#0",
+"difficulty": "hard",
+"date": "2023-07-02",
+"content_len": 428,
+"starter_len": 63,
+"input_len": 12,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2849#1",
+"difficulty": "hard",
+"date": "2023-07-02",
+"content_len": 428,
+"starter_len": 63,
+"input_len": 15,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2850#0",
+"difficulty": "medium",
+"date": "2023-06-24",
+"content_len": 449,
+"starter_len": 64,
+"input_len": 5,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "2850#1",
+"difficulty": "medium",
+"date": "2023-06-24",
+"content_len": 449,
+"starter_len": 64,
+"input_len": 5,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "2854#0",
+"difficulty": "medium",
+"date": "2023-06-24",
+"content_len": 687,
+"starter_len": 71,
+"input_len": 18,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2854#1",
+"difficulty": "medium",
+"date": "2023-06-24",
+"content_len": 687,
+"starter_len": 71,
+"input_len": 11,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2854#2",
+"difficulty": "medium",
+"date": "2023-06-24",
+"content_len": 687,
+"starter_len": 71,
+"input_len": 19,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2855#0",
+"difficulty": "medium",
+"date": "2023-07-09",
+"content_len": 360,
+"starter_len": 69,
+"input_len": 20,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2855#1",
+"difficulty": "medium",
+"date": "2023-07-09",
+"content_len": 360,
+"starter_len": 69,
+"input_len": 20,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2855#2",
+"difficulty": "medium",
+"date": "2023-07-09",
+"content_len": 360,
+"starter_len": 69,
+"input_len": 20,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "2856#0",
+"difficulty": "medium",
+"date": "2023-07-30",
+"content_len": 354,
+"starter_len": 66,
+"input_len": 15,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2856#1",
+"difficulty": "medium",
+"date": "2023-07-30",
+"content_len": 354,
+"starter_len": 66,
+"input_len": 12,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "2857#0",
+"difficulty": "easy",
+"date": "2023-06-18",
+"content_len": 617,
+"starter_len": 79,
+"input_len": 4,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "2857#1",
+"difficulty": "easy",
+"date": "2023-06-18",
+"content_len": 617,
+"starter_len": 79,
+"input_len": 3,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "2866#0",
+"difficulty": "easy",
+"date": "2023-07-02",
+"content_len": 534,
+"starter_len": 86,
+"input_len": 14,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2866#1",
+"difficulty": "easy",
+"date": "2023-07-02",
+"content_len": 534,
+"starter_len": 86,
+"input_len": 8,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2866#2",
+"difficulty": "easy",
+"date": "2023-07-02",
+"content_len": 534,
+"starter_len": 86,
+"input_len": 14,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2867#0",
+"difficulty": "medium",
+"date": "2023-06-25",
+"content_len": 346,
+"starter_len": 70,
+"input_len": 15,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2867#1",
+"difficulty": "medium",
+"date": "2023-06-25",
+"content_len": 346,
+"starter_len": 70,
+"input_len": 9,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2868#0",
+"difficulty": "medium",
+"date": "2023-07-02",
+"content_len": 358,
+"starter_len": 63,
+"input_len": 12,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2868#1",
+"difficulty": "medium",
+"date": "2023-07-02",
+"content_len": 358,
+"starter_len": 63,
+"input_len": 9,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2869#0",
+"difficulty": "medium",
+"date": "2023-07-09",
+"content_len": 528,
+"starter_len": 85,
+"input_len": 19,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2869#1",
+"difficulty": "medium",
+"date": "2023-07-09",
+"content_len": 528,
+"starter_len": 85,
+"input_len": 25,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2869#2",
+"difficulty": "medium",
+"date": "2023-07-09",
+"content_len": 528,
+"starter_len": 85,
+"input_len": 13,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2870#0",
+"difficulty": "easy",
+"date": "2023-07-08",
+"content_len": 515,
+"starter_len": 63,
+"input_len": 15,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2870#1",
+"difficulty": "easy",
+"date": "2023-07-08",
+"content_len": 515,
+"starter_len": 63,
+"input_len": 9,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2872#0",
+"difficulty": "medium",
+"date": "2023-07-23",
+"content_len": 421,
+"starter_len": 57,
+"input_len": 15,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "2872#1",
+"difficulty": "medium",
+"date": "2023-07-23",
+"content_len": 421,
+"starter_len": 57,
+"input_len": 9,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "2873#0",
+"difficulty": "medium",
+"date": "2023-07-02",
+"content_len": 421,
+"starter_len": 61,
+"input_len": 2,
+"out_len": 16,
+"out_kind": "nested2"
+},
+{
+"qid": "2873#1",
+"difficulty": "medium",
+"date": "2023-07-02",
+"content_len": 421,
+"starter_len": 61,
+"input_len": 1,
+"out_len": 2,
+"out_kind": "nested1"
+},
+{
+"qid": "2876#0",
+"difficulty": "easy",
+"date": "2023-07-30",
+"content_len": 392,
+"starter_len": 87,
+"input_len": 17,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2876#1",
+"difficulty": "easy",
+"date": "2023-07-30",
+"content_len": 392,
+"starter_len": 87,
+"input_len": 17,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2877#0",
+"difficulty": "medium",
+"date": "2023-07-30",
+"content_len": 565,
+"starter_len": 64,
+"input_len": 17,
+"out_len": 8,
+"out_kind": "string"
+},
+{
+"qid": "2877#1",
+"difficulty": "medium",
+"date": "2023-07-30",
+"content_len": 565,
+"starter_len": 64,
+"input_len": 15,
+"out_len": 5,
+"out_kind": "string"
+},
+{
+"qid": "2878#0",
+"difficulty": "medium",
+"date": "2023-07-09",
+"content_len": 366,
+"starter_len": 63,
+"input_len": 20,
+"out_len": 4,
+"out_kind": "bool"
+},
+{
+"qid": "2878#1",
+"difficulty": "medium",
+"date": "2023-07-09",
+"content_len": 366,
+"starter_len": 63,
+"input_len": 14,
+"out_len": 5,
+"out_kind": "bool"
+},
+{
+"qid": "2879#0",
+"difficulty": "hard",
+"date": "2023-10-22",
+"content_len": 753,
+"starter_len": 57,
+"input_len": 9,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2879#1",
+"difficulty": "hard",
+"date": "2023-10-22",
+"content_len": 753,
+"starter_len": 57,
+"input_len": 10,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2879#2",
+"difficulty": "hard",
+"date": "2023-10-22",
+"content_len": 753,
+"starter_len": 57,
+"input_len": 10,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2881#0",
+"difficulty": "easy",
+"date": "2023-07-23",
+"content_len": 458,
+"starter_len": 88,
+"input_len": 41,
+"out_len": 46,
+"out_kind": "nested1"
+},
+{
+"qid": "2881#1",
+"difficulty": "easy",
+"date": "2023-07-23",
+"content_len": 458,
+"starter_len": 88,
+"input_len": 27,
+"out_len": 19,
+"out_kind": "nested1"
+},
+{
+"qid": "2881#2",
+"difficulty": "easy",
+"date": "2023-07-23",
+"content_len": 458,
+"starter_len": 88,
+"input_len": 11,
+"out_len": 2,
+"out_kind": "nested1"
+},
+{
+"qid": "2882#0",
+"difficulty": "medium",
+"date": "2023-07-22",
+"content_len": 399,
+"starter_len": 55,
+"input_len": 4,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2882#1",
+"difficulty": "medium",
+"date": "2023-07-22",
+"content_len": 399,
+"starter_len": 55,
+"input_len": 3,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2883#0",
+"difficulty": "medium",
+"date": "2023-07-08",
+"content_len": 449,
+"starter_len": 61,
+"input_len": 6,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2883#1",
+"difficulty": "medium",
+"date": "2023-07-08",
+"content_len": 449,
+"starter_len": 61,
+"input_len": 5,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2883#2",
+"difficulty": "medium",
+"date": "2023-07-08",
+"content_len": 449,
+"starter_len": 61,
+"input_len": 3,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "2884#0",
+"difficulty": "hard",
+"date": "2023-07-16",
+"content_len": 291,
+"starter_len": 81,
+"input_len": 24,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2884#1",
+"difficulty": "hard",
+"date": "2023-07-16",
+"content_len": 291,
+"starter_len": 81,
+"input_len": 28,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2886#0",
+"difficulty": "easy",
+"date": "2023-08-06",
+"content_len": 333,
+"starter_len": 46,
+"input_len": 8,
+"out_len": 7,
+"out_kind": "string"
+},
+{
+"qid": "2886#1",
+"difficulty": "easy",
+"date": "2023-08-06",
+"content_len": 333,
+"starter_len": 46,
+"input_len": 10,
+"out_len": 8,
+"out_kind": "string"
+},
+{
+"qid": "2887#0",
+"difficulty": "medium",
+"date": "2023-07-22",
+"content_len": 642,
+"starter_len": 45,
+"input_len": 10,
+"out_len": 10,
+"out_kind": "string"
+},
+{
+"qid": "2887#1",
+"difficulty": "medium",
+"date": "2023-07-22",
+"content_len": 642,
+"starter_len": 45,
+"input_len": 7,
+"out_len": 7,
+"out_kind": "string"
+},
+{
+"qid": "2888#0",
+"difficulty": "medium",
+"date": "2023-07-16",
+"content_len": 797,
+"starter_len": 56,
+"input_len": 12,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2888#1",
+"difficulty": "medium",
+"date": "2023-07-16",
+"content_len": 797,
+"starter_len": 56,
+"input_len": 30,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2888#2",
+"difficulty": "medium",
+"date": "2023-07-16",
+"content_len": 797,
+"starter_len": 56,
+"input_len": 21,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "2891#0",
+"difficulty": "medium",
+"date": "2023-07-16",
+"content_len": 709,
+"starter_len": 65,
+"input_len": 14,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2891#1",
+"difficulty": "medium",
+"date": "2023-07-16",
+"content_len": 709,
+"starter_len": 65,
+"input_len": 15,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2892#0",
+"difficulty": "easy",
+"date": "2023-07-22",
+"content_len": 458,
+"starter_len": 51,
+"input_len": 9,
+"out_len": 5,
+"out_kind": "bool"
+},
+{
+"qid": "2892#1",
+"difficulty": "easy",
+"date": "2023-07-22",
+"content_len": 458,
+"starter_len": 51,
+"input_len": 12,
+"out_len": 4,
+"out_kind": "bool"
+},
+{
+"qid": "2892#2",
+"difficulty": "easy",
+"date": "2023-07-22",
+"content_len": 458,
+"starter_len": 51,
+"input_len": 6,
+"out_len": 4,
+"out_kind": "bool"
+},
+{
+"qid": "2892#3",
+"difficulty": "easy",
+"date": "2023-07-22",
+"content_len": 458,
+"starter_len": 51,
+"input_len": 18,
+"out_len": 5,
+"out_kind": "bool"
+},
+{
+"qid": "2893#0",
+"difficulty": "medium",
+"date": "2023-07-22",
+"content_len": 552,
+"starter_len": 60,
+"input_len": 20,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "2893#1",
+"difficulty": "medium",
+"date": "2023-07-22",
+"content_len": 552,
+"starter_len": 60,
+"input_len": 14,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "2902#0",
+"difficulty": "easy",
+"date": "2023-08-13",
+"content_len": 220,
+"starter_len": 50,
+"input_len": 20,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "2902#1",
+"difficulty": "easy",
+"date": "2023-08-13",
+"content_len": 220,
+"starter_len": 50,
+"input_len": 12,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "2915#0",
+"difficulty": "medium",
+"date": "2023-09-03",
+"content_len": 482,
+"starter_len": 90,
+"input_len": 13,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2915#1",
+"difficulty": "medium",
+"date": "2023-09-03",
+"content_len": 482,
+"starter_len": 90,
+"input_len": 16,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2916#0",
+"difficulty": "medium",
+"date": "2023-08-06",
+"content_len": 672,
+"starter_len": 66,
+"input_len": 11,
+"out_len": 4,
+"out_kind": "bool"
+},
+{
+"qid": "2916#1",
+"difficulty": "medium",
+"date": "2023-08-06",
+"content_len": 672,
+"starter_len": 66,
+"input_len": 11,
+"out_len": 5,
+"out_kind": "bool"
+},
+{
+"qid": "2916#2",
+"difficulty": "medium",
+"date": "2023-08-06",
+"content_len": 672,
+"starter_len": 66,
+"input_len": 17,
+"out_len": 4,
+"out_kind": "bool"
+},
+{
+"qid": "2917#0",
+"difficulty": "easy",
+"date": "2023-08-19",
+"content_len": 161,
+"starter_len": 67,
+"input_len": 18,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2917#1",
+"difficulty": "easy",
+"date": "2023-08-19",
+"content_len": 161,
+"starter_len": 67,
+"input_len": 28,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "2919#0",
+"difficulty": "hard",
+"date": "2023-07-23",
+"content_len": 585,
+"starter_len": 70,
+"input_len": 9,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2919#1",
+"difficulty": "hard",
+"date": "2023-07-23",
+"content_len": 585,
+"starter_len": 70,
+"input_len": 9,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2919#2",
+"difficulty": "hard",
+"date": "2023-07-23",
+"content_len": 585,
+"starter_len": 70,
+"input_len": 6,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2920#0",
+"difficulty": "medium",
+"date": "2023-08-05",
+"content_len": 401,
+"starter_len": 58,
+"input_len": 12,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2920#1",
+"difficulty": "medium",
+"date": "2023-08-05",
+"content_len": 401,
+"starter_len": 58,
+"input_len": 15,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2920#2",
+"difficulty": "medium",
+"date": "2023-08-05",
+"content_len": 401,
+"starter_len": 58,
+"input_len": 12,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2921#0",
+"difficulty": "hard",
+"date": "2023-07-30",
+"content_len": 462,
+"starter_len": 68,
+"input_len": 8,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "2921#1",
+"difficulty": "hard",
+"date": "2023-07-30",
+"content_len": 462,
+"starter_len": 68,
+"input_len": 10,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2952#0",
+"difficulty": "hard",
+"date": "2023-08-05",
+"content_len": 470,
+"starter_len": 82,
+"input_len": 21,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2952#1",
+"difficulty": "hard",
+"date": "2023-08-05",
+"content_len": 470,
+"starter_len": 82,
+"input_len": 21,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "2953#0",
+"difficulty": "medium",
+"date": "2023-09-16",
+"content_len": 394,
+"starter_len": 75,
+"input_len": 34,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2953#1",
+"difficulty": "medium",
+"date": "2023-09-16",
+"content_len": 394,
+"starter_len": 75,
+"input_len": 42,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "2954#0",
+"difficulty": "medium",
+"date": "2023-09-02",
+"content_len": 346,
+"starter_len": 66,
+"input_len": 22,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "2954#1",
+"difficulty": "medium",
+"date": "2023-09-02",
+"content_len": 346,
+"starter_len": 66,
+"input_len": 25,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "2954#2",
+"difficulty": "medium",
+"date": "2023-09-02",
+"content_len": 346,
+"starter_len": 66,
+"input_len": 25,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2955#0",
+"difficulty": "easy",
+"date": "2023-08-05",
+"content_len": 696,
+"starter_len": 75,
+"input_len": 1,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "2955#1",
+"difficulty": "easy",
+"date": "2023-08-05",
+"content_len": 696,
+"starter_len": 75,
+"input_len": 2,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "2977#0",
+"difficulty": "easy",
+"date": "2023-08-20",
+"content_len": 398,
+"starter_len": 63,
+"input_len": 33,
+"out_len": 4,
+"out_kind": "bool"
+},
+{
+"qid": "2977#1",
+"difficulty": "easy",
+"date": "2023-08-20",
+"content_len": 398,
+"starter_len": 63,
+"input_len": 19,
+"out_len": 5,
+"out_kind": "bool"
+},
+{
+"qid": "2977#2",
+"difficulty": "easy",
+"date": "2023-08-20",
+"content_len": 398,
+"starter_len": 63,
+"input_len": 54,
+"out_len": 4,
+"out_kind": "bool"
+},
+{
+"qid": "2979#0",
+"difficulty": "medium",
+"date": "2023-08-20",
+"content_len": 556,
+"starter_len": 77,
+"input_len": 35,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2979#1",
+"difficulty": "medium",
+"date": "2023-08-20",
+"content_len": 556,
+"starter_len": 77,
+"input_len": 36,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "2998#0",
+"difficulty": "easy",
+"date": "2023-09-03",
+"content_len": 314,
+"starter_len": 70,
+"input_len": 5,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2998#1",
+"difficulty": "easy",
+"date": "2023-09-03",
+"content_len": 314,
+"starter_len": 70,
+"input_len": 9,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "2999#0",
+"difficulty": "easy",
+"date": "2023-09-02",
+"content_len": 376,
+"starter_len": 56,
+"input_len": 13,
+"out_len": 4,
+"out_kind": "bool"
+},
+{
+"qid": "2999#1",
+"difficulty": "easy",
+"date": "2023-09-02",
+"content_len": 376,
+"starter_len": 56,
+"input_len": 13,
+"out_len": 5,
+"out_kind": "bool"
+},
+{
+"qid": "3000#0",
+"difficulty": "medium",
+"date": "2023-08-13",
+"content_len": 394,
+"starter_len": 73,
+"input_len": 14,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3000#1",
+"difficulty": "medium",
+"date": "2023-08-13",
+"content_len": 394,
+"starter_len": 73,
+"input_len": 19,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3000#2",
+"difficulty": "medium",
+"date": "2023-08-13",
+"content_len": 394,
+"starter_len": 73,
+"input_len": 14,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3017#0",
+"difficulty": "hard",
+"date": "2023-08-19",
+"content_len": 294,
+"starter_len": 81,
+"input_len": 7,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3017#1",
+"difficulty": "hard",
+"date": "2023-08-19",
+"content_len": 294,
+"starter_len": 81,
+"input_len": 6,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3017#2",
+"difficulty": "hard",
+"date": "2023-08-19",
+"content_len": 294,
+"starter_len": 81,
+"input_len": 5,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3018#0",
+"difficulty": "medium",
+"date": "2023-08-19",
+"content_len": 604,
+"starter_len": 68,
+"input_len": 10,
+"out_len": 4,
+"out_kind": "bool"
+},
+{
+"qid": "3018#1",
+"difficulty": "medium",
+"date": "2023-08-19",
+"content_len": 604,
+"starter_len": 68,
+"input_len": 9,
+"out_len": 4,
+"out_kind": "bool"
+},
+{
+"qid": "3018#2",
+"difficulty": "medium",
+"date": "2023-08-19",
+"content_len": 604,
+"starter_len": 68,
+"input_len": 8,
+"out_len": 5,
+"out_kind": "bool"
+},
+{
+"qid": "3019#0",
+"difficulty": "easy",
+"date": "2023-08-27",
+"content_len": 436,
+"starter_len": 65,
+"input_len": 9,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3019#1",
+"difficulty": "easy",
+"date": "2023-08-27",
+"content_len": 436,
+"starter_len": 65,
+"input_len": 9,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3019#2",
+"difficulty": "easy",
+"date": "2023-08-27",
+"content_len": 436,
+"starter_len": 65,
+"input_len": 9,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3024#0",
+"difficulty": "hard",
+"date": "2023-09-10",
+"content_len": 504,
+"starter_len": 63,
+"input_len": 15,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3024#1",
+"difficulty": "hard",
+"date": "2023-09-10",
+"content_len": 504,
+"starter_len": 63,
+"input_len": 19,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3025#0",
+"difficulty": "hard",
+"date": "2023-08-27",
+"content_len": 660,
+"starter_len": 70,
+"input_len": 11,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3025#1",
+"difficulty": "hard",
+"date": "2023-08-27",
+"content_len": 660,
+"starter_len": 70,
+"input_len": 16,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3025#2",
+"difficulty": "hard",
+"date": "2023-08-27",
+"content_len": 660,
+"starter_len": 70,
+"input_len": 13,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "3026#0",
+"difficulty": "medium",
+"date": "2023-08-27",
+"content_len": 385,
+"starter_len": 66,
+"input_len": 3,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3026#1",
+"difficulty": "medium",
+"date": "2023-08-27",
+"content_len": 385,
+"starter_len": 66,
+"input_len": 3,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3026#2",
+"difficulty": "medium",
+"date": "2023-08-27",
+"content_len": 385,
+"starter_len": 66,
+"input_len": 3,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3031#0",
+"difficulty": "medium",
+"date": "2023-10-15",
+"content_len": 358,
+"starter_len": 84,
+"input_len": 16,
+"out_len": 18,
+"out_kind": "nested2"
+},
+{
+"qid": "3031#1",
+"difficulty": "medium",
+"date": "2023-10-15",
+"content_len": 358,
+"starter_len": 84,
+"input_len": 19,
+"out_len": 15,
+"out_kind": "nested2"
+},
+{
+"qid": "3032#0",
+"difficulty": "hard",
+"date": "2023-08-27",
+"content_len": 947,
+"starter_len": 75,
+"input_len": 11,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3032#1",
+"difficulty": "hard",
+"date": "2023-08-27",
+"content_len": 947,
+"starter_len": 75,
+"input_len": 17,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "3033#0",
+"difficulty": "medium",
+"date": "2023-10-08",
+"content_len": 564,
+"starter_len": 66,
+"input_len": 27,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3033#1",
+"difficulty": "medium",
+"date": "2023-10-08",
+"content_len": 564,
+"starter_len": 66,
+"input_len": 17,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "3034#0",
+"difficulty": "easy",
+"date": "2023-09-10",
+"content_len": 349,
+"starter_len": 64,
+"input_len": 24,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3034#1",
+"difficulty": "easy",
+"date": "2023-09-10",
+"content_len": 349,
+"starter_len": 64,
+"input_len": 16,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3044#0",
+"difficulty": "easy",
+"date": "2023-09-30",
+"content_len": 244,
+"starter_len": 65,
+"input_len": 17,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3044#1",
+"difficulty": "easy",
+"date": "2023-09-30",
+"content_len": 244,
+"starter_len": 65,
+"input_len": 17,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3044#2",
+"difficulty": "easy",
+"date": "2023-09-30",
+"content_len": 244,
+"starter_len": 65,
+"input_len": 17,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3045#0",
+"difficulty": "easy",
+"date": "2023-09-16",
+"content_len": 285,
+"starter_len": 62,
+"input_len": 15,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3045#1",
+"difficulty": "easy",
+"date": "2023-09-16",
+"content_len": 285,
+"starter_len": 62,
+"input_len": 9,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3045#2",
+"difficulty": "easy",
+"date": "2023-09-16",
+"content_len": 285,
+"starter_len": 62,
+"input_len": 9,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "3046#0",
+"difficulty": "medium",
+"date": "2023-09-03",
+"content_len": 332,
+"starter_len": 54,
+"input_len": 9,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3046#1",
+"difficulty": "medium",
+"date": "2023-09-03",
+"content_len": 332,
+"starter_len": 54,
+"input_len": 9,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3046#2",
+"difficulty": "medium",
+"date": "2023-09-03",
+"content_len": 332,
+"starter_len": 54,
+"input_len": 4,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3047#0",
+"difficulty": "hard",
+"date": "2023-09-17",
+"content_len": 482,
+"starter_len": 54,
+"input_len": 24,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "3047#1",
+"difficulty": "hard",
+"date": "2023-09-17",
+"content_len": 482,
+"starter_len": 54,
+"input_len": 30,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "3055#0",
+"difficulty": "easy",
+"date": "2023-09-24",
+"content_len": 382,
+"starter_len": 57,
+"input_len": 5,
+"out_len": 5,
+"out_kind": "string"
+},
+{
+"qid": "3055#1",
+"difficulty": "easy",
+"date": "2023-09-24",
+"content_len": 382,
+"starter_len": 57,
+"input_len": 6,
+"out_len": 6,
+"out_kind": "string"
+},
+{
+"qid": "3080#0",
+"difficulty": "medium",
+"date": "2023-09-30",
+"content_len": 573,
+"starter_len": 56,
+"input_len": 18,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3080#1",
+"difficulty": "medium",
+"date": "2023-09-30",
+"content_len": 573,
+"starter_len": 56,
+"input_len": 12,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3081#0",
+"difficulty": "medium",
+"date": "2023-09-16",
+"content_len": 507,
+"starter_len": 66,
+"input_len": 12,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3081#1",
+"difficulty": "medium",
+"date": "2023-09-16",
+"content_len": 507,
+"starter_len": 66,
+"input_len": 12,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3081#2",
+"difficulty": "medium",
+"date": "2023-09-16",
+"content_len": 507,
+"starter_len": 66,
+"input_len": 9,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3091#0",
+"difficulty": "hard",
+"date": "2023-10-14",
+"content_len": 609,
+"starter_len": 77,
+"input_len": 16,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3091#1",
+"difficulty": "hard",
+"date": "2023-10-14",
+"content_len": 609,
+"starter_len": 77,
+"input_len": 19,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3091#2",
+"difficulty": "hard",
+"date": "2023-10-14",
+"content_len": 609,
+"starter_len": 77,
+"input_len": 22,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3093#0",
+"difficulty": "easy",
+"date": "2023-09-17",
+"content_len": 364,
+"starter_len": 74,
+"input_len": 18,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "3093#1",
+"difficulty": "easy",
+"date": "2023-09-17",
+"content_len": 364,
+"starter_len": 74,
+"input_len": 14,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3094#0",
+"difficulty": "medium",
+"date": "2023-09-30",
+"content_len": 406,
+"starter_len": 57,
+"input_len": 27,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3094#1",
+"difficulty": "medium",
+"date": "2023-09-30",
+"content_len": 406,
+"starter_len": 57,
+"input_len": 18,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "3104#0",
+"difficulty": "medium",
+"date": "2023-09-17",
+"content_len": 571,
+"starter_len": 53,
+"input_len": 6,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3104#1",
+"difficulty": "medium",
+"date": "2023-09-17",
+"content_len": 571,
+"starter_len": 53,
+"input_len": 24,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3106#0",
+"difficulty": "medium",
+"date": "2023-10-28",
+"content_len": 345,
+"starter_len": 83,
+"input_len": 17,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3106#1",
+"difficulty": "medium",
+"date": "2023-10-28",
+"content_len": 345,
+"starter_len": 83,
+"input_len": 20,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3106#2",
+"difficulty": "medium",
+"date": "2023-10-28",
+"content_len": 345,
+"starter_len": 83,
+"input_len": 17,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "3114#0",
+"difficulty": "medium",
+"date": "2023-09-24",
+"content_len": 584,
+"starter_len": 69,
+"input_len": 15,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "3114#1",
+"difficulty": "medium",
+"date": "2023-09-24",
+"content_len": 584,
+"starter_len": 69,
+"input_len": 18,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "3114#2",
+"difficulty": "medium",
+"date": "2023-09-24",
+"content_len": 584,
+"starter_len": 69,
+"input_len": 18,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "3141#0",
+"difficulty": "medium",
+"date": "2023-10-01",
+"content_len": 301,
+"starter_len": 72,
+"input_len": 11,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3141#1",
+"difficulty": "medium",
+"date": "2023-10-01",
+"content_len": 301,
+"starter_len": 72,
+"input_len": 17,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3141#2",
+"difficulty": "medium",
+"date": "2023-10-01",
+"content_len": 301,
+"starter_len": 72,
+"input_len": 14,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "3150#0",
+"difficulty": "medium",
+"date": "2023-10-15",
+"content_len": 704,
+"starter_len": 69,
+"input_len": 13,
+"out_len": 7,
+"out_kind": "string"
+},
+{
+"qid": "3150#1",
+"difficulty": "medium",
+"date": "2023-10-15",
+"content_len": 704,
+"starter_len": 69,
+"input_len": 8,
+"out_len": 4,
+"out_kind": "string"
+},
+{
+"qid": "3150#2",
+"difficulty": "medium",
+"date": "2023-10-15",
+"content_len": 704,
+"starter_len": 69,
+"input_len": 7,
+"out_len": 2,
+"out_kind": "string"
+},
+{
+"qid": "3151#0",
+"difficulty": "medium",
+"date": "2023-10-08",
+"content_len": 500,
+"starter_len": 88,
+"input_len": 32,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "3151#1",
+"difficulty": "medium",
+"date": "2023-10-08",
+"content_len": 500,
+"starter_len": 88,
+"input_len": 33,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "3153#0",
+"difficulty": "hard",
+"date": "2023-10-08",
+"content_len": 585,
+"starter_len": 58,
+"input_len": 14,
+"out_len": 3,
+"out_kind": "int"
+},
+{
+"qid": "3153#1",
+"difficulty": "hard",
+"date": "2023-10-08",
+"content_len": 585,
+"starter_len": 58,
+"input_len": 14,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "3154#0",
+"difficulty": "easy",
+"date": "2023-10-01",
+"content_len": 274,
+"starter_len": 63,
+"input_len": 16,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "3154#1",
+"difficulty": "easy",
+"date": "2023-10-01",
+"content_len": 274,
+"starter_len": 63,
+"input_len": 17,
+"out_len": 3,
+"out_kind": "int"
+},
+{
+"qid": "3154#2",
+"difficulty": "easy",
+"date": "2023-10-01",
+"content_len": 274,
+"starter_len": 63,
+"input_len": 9,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3163#0",
+"difficulty": "easy",
+"date": "2023-10-28",
+"content_len": 465,
+"starter_len": 53,
+"input_len": 9,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "3163#1",
+"difficulty": "easy",
+"date": "2023-10-28",
+"content_len": 465,
+"starter_len": 53,
+"input_len": 6,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3164#0",
+"difficulty": "easy",
+"date": "2023-10-14",
+"content_len": 739,
+"starter_len": 70,
+"input_len": 34,
+"out_len": 10,
+"out_kind": "nested1"
+},
+{
+"qid": "3164#1",
+"difficulty": "easy",
+"date": "2023-10-14",
+"content_len": 739,
+"starter_len": 70,
+"input_len": 34,
+"out_len": 9,
+"out_kind": "nested1"
+},
+{
+"qid": "3166#0",
+"difficulty": "medium",
+"date": "2023-10-22",
+"content_len": 538,
+"starter_len": 71,
+"input_len": 15,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3166#1",
+"difficulty": "medium",
+"date": "2023-10-22",
+"content_len": 538,
+"starter_len": 71,
+"input_len": 21,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3171#0",
+"difficulty": "medium",
+"date": "2023-10-29",
+"content_len": 287,
+"starter_len": 69,
+"input_len": 25,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "3171#1",
+"difficulty": "medium",
+"date": "2023-10-29",
+"content_len": 287,
+"starter_len": 69,
+"input_len": 19,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "3172#0",
+"difficulty": "easy",
+"date": "2023-10-08",
+"content_len": 279,
+"starter_len": 59,
+"input_len": 4,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "3172#1",
+"difficulty": "easy",
+"date": "2023-10-08",
+"content_len": 279,
+"starter_len": 59,
+"input_len": 3,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "3172#2",
+"difficulty": "easy",
+"date": "2023-10-08",
+"content_len": 279,
+"starter_len": 59,
+"input_len": 3,
+"out_len": 3,
+"out_kind": "int"
+},
+{
+"qid": "3174#0",
+"difficulty": "medium",
+"date": "2023-10-28",
+"content_len": 367,
+"starter_len": 45,
+"input_len": 6,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3174#1",
+"difficulty": "medium",
+"date": "2023-10-28",
+"content_len": 367,
+"starter_len": 45,
+"input_len": 4,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3174#2",
+"difficulty": "medium",
+"date": "2023-10-28",
+"content_len": 367,
+"starter_len": 45,
+"input_len": 6,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3176#0",
+"difficulty": "easy",
+"date": "2023-10-22",
+"content_len": 254,
+"starter_len": 54,
+"input_len": 15,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3176#1",
+"difficulty": "easy",
+"date": "2023-10-22",
+"content_len": 254,
+"starter_len": 54,
+"input_len": 19,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "3176#2",
+"difficulty": "easy",
+"date": "2023-10-22",
+"content_len": 254,
+"starter_len": 54,
+"input_len": 18,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "3183#0",
+"difficulty": "easy",
+"date": "2023-10-29",
+"content_len": 367,
+"starter_len": 59,
+"input_len": 22,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3183#1",
+"difficulty": "easy",
+"date": "2023-10-29",
+"content_len": 367,
+"starter_len": 59,
+"input_len": 22,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3183#2",
+"difficulty": "easy",
+"date": "2023-10-29",
+"content_len": 367,
+"starter_len": 59,
+"input_len": 25,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "3184#0",
+"difficulty": "hard",
+"date": "2023-11-05",
+"content_len": 620,
+"starter_len": 69,
+"input_len": 12,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "3184#1",
+"difficulty": "hard",
+"date": "2023-11-05",
+"content_len": 620,
+"starter_len": 69,
+"input_len": 14,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "3184#2",
+"difficulty": "hard",
+"date": "2023-11-05",
+"content_len": 620,
+"starter_len": 69,
+"input_len": 8,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "3188#0",
+"difficulty": "easy",
+"date": "2023-11-05",
+"content_len": 419,
+"starter_len": 62,
+"input_len": 16,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3188#1",
+"difficulty": "easy",
+"date": "2023-11-05",
+"content_len": 419,
+"starter_len": 62,
+"input_len": 33,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3190#0",
+"difficulty": "medium",
+"date": "2023-11-12",
+"content_len": 783,
+"starter_len": 76,
+"input_len": 19,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3190#1",
+"difficulty": "medium",
+"date": "2023-11-12",
+"content_len": 783,
+"starter_len": 76,
+"input_len": 31,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3190#2",
+"difficulty": "medium",
+"date": "2023-11-12",
+"content_len": 783,
+"starter_len": 76,
+"input_len": 19,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "3192#0",
+"difficulty": "medium",
+"date": "2023-11-18",
+"content_len": 212,
+"starter_len": 68,
+"input_len": 6,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "3192#1",
+"difficulty": "medium",
+"date": "2023-11-18",
+"content_len": 212,
+"starter_len": 68,
+"input_len": 5,
+"out_len": 3,
+"out_kind": "int"
+},
+{
+"qid": "3192#2",
+"difficulty": "medium",
+"date": "2023-11-18",
+"content_len": 212,
+"starter_len": 68,
+"input_len": 5,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "3193#0",
+"difficulty": "easy",
+"date": "2023-11-12",
+"content_len": 446,
+"starter_len": 64,
+"input_len": 15,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3193#1",
+"difficulty": "easy",
+"date": "2023-11-12",
+"content_len": 446,
+"starter_len": 64,
+"input_len": 9,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3193#2",
+"difficulty": "easy",
+"date": "2023-11-12",
+"content_len": 446,
+"starter_len": 64,
+"input_len": 14,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3194#0",
+"difficulty": "easy",
+"date": "2023-11-25",
+"content_len": 200,
+"starter_len": 78,
+"input_len": 20,
+"out_len": 6,
+"out_kind": "nested1"
+},
+{
+"qid": "3194#1",
+"difficulty": "easy",
+"date": "2023-11-25",
+"content_len": 200,
+"starter_len": 78,
+"input_len": 33,
+"out_len": 6,
+"out_kind": "nested1"
+},
+{
+"qid": "3194#2",
+"difficulty": "easy",
+"date": "2023-11-25",
+"content_len": 200,
+"starter_len": 78,
+"input_len": 33,
+"out_len": 2,
+"out_kind": "nested1"
+},
+{
+"qid": "3195#0",
+"difficulty": "medium",
+"date": "2023-11-18",
+"content_len": 363,
+"starter_len": 47,
+"input_len": 5,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3195#1",
+"difficulty": "medium",
+"date": "2023-11-18",
+"content_len": 363,
+"starter_len": 47,
+"input_len": 5,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3195#2",
+"difficulty": "medium",
+"date": "2023-11-18",
+"content_len": 363,
+"starter_len": 47,
+"input_len": 6,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3196#0",
+"difficulty": "hard",
+"date": "2023-12-16",
+"content_len": 427,
+"starter_len": 69,
+"input_len": 14,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3196#1",
+"difficulty": "hard",
+"date": "2023-12-16",
+"content_len": 427,
+"starter_len": 69,
+"input_len": 17,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3199#0",
+"difficulty": "easy",
+"date": "2023-11-11",
+"content_len": 173,
+"starter_len": 64,
+"input_len": 3,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3199#1",
+"difficulty": "easy",
+"date": "2023-11-11",
+"content_len": 173,
+"starter_len": 64,
+"input_len": 3,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "3200#0",
+"difficulty": "medium",
+"date": "2023-11-11",
+"content_len": 567,
+"starter_len": 46,
+"input_len": 1,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "3200#1",
+"difficulty": "medium",
+"date": "2023-11-11",
+"content_len": 567,
+"starter_len": 46,
+"input_len": 2,
+"out_len": 8,
+"out_kind": "int"
+},
+{
+"qid": "3203#0",
+"difficulty": "hard",
+"date": "2023-12-30",
+"content_len": 932,
+"starter_len": 92,
+"input_len": 37,
+"out_len": 12,
+"out_kind": "nested1"
+},
+{
+"qid": "3203#1",
+"difficulty": "hard",
+"date": "2023-12-30",
+"content_len": 932,
+"starter_len": 92,
+"input_len": 27,
+"out_len": 7,
+"out_kind": "nested1"
+},
+{
+"qid": "3203#2",
+"difficulty": "hard",
+"date": "2023-12-30",
+"content_len": 932,
+"starter_len": 92,
+"input_len": 23,
+"out_len": 6,
+"out_kind": "nested1"
+},
+{
+"qid": "3206#0",
+"difficulty": "easy",
+"date": "2023-12-09",
+"content_len": 403,
+"starter_len": 91,
+"input_len": 34,
+"out_len": 6,
+"out_kind": "nested1"
+},
+{
+"qid": "3206#1",
+"difficulty": "easy",
+"date": "2023-12-09",
+"content_len": 403,
+"starter_len": 91,
+"input_len": 19,
+"out_len": 6,
+"out_kind": "nested1"
+},
+{
+"qid": "3207#0",
+"difficulty": "easy",
+"date": "2023-11-18",
+"content_len": 428,
+"starter_len": 75,
+"input_len": 16,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3207#1",
+"difficulty": "easy",
+"date": "2023-11-18",
+"content_len": 428,
+"starter_len": 75,
+"input_len": 17,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "3209#0",
+"difficulty": "medium",
+"date": "2023-11-25",
+"content_len": 520,
+"starter_len": 58,
+"input_len": 9,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3209#1",
+"difficulty": "medium",
+"date": "2023-11-25",
+"content_len": 520,
+"starter_len": 58,
+"input_len": 13,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3210#0",
+"difficulty": "medium",
+"date": "2023-11-25",
+"content_len": 549,
+"starter_len": 62,
+"input_len": 9,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3210#1",
+"difficulty": "medium",
+"date": "2023-11-25",
+"content_len": 549,
+"starter_len": 62,
+"input_len": 8,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3210#2",
+"difficulty": "medium",
+"date": "2023-11-25",
+"content_len": 549,
+"starter_len": 62,
+"input_len": 8,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3211#0",
+"difficulty": "hard",
+"date": "2023-11-25",
+"content_len": 482,
+"starter_len": 61,
+"input_len": 9,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3211#1",
+"difficulty": "hard",
+"date": "2023-11-25",
+"content_len": 482,
+"starter_len": 61,
+"input_len": 12,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3211#2",
+"difficulty": "hard",
+"date": "2023-11-25",
+"content_len": 482,
+"starter_len": 61,
+"input_len": 12,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3212#0",
+"difficulty": "hard",
+"date": "2023-12-09",
+"content_len": 304,
+"starter_len": 66,
+"input_len": 12,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3212#1",
+"difficulty": "hard",
+"date": "2023-12-09",
+"content_len": 304,
+"starter_len": 66,
+"input_len": 12,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3212#2",
+"difficulty": "hard",
+"date": "2023-12-09",
+"content_len": 304,
+"starter_len": 66,
+"input_len": 12,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3213#0",
+"difficulty": "medium",
+"date": "2023-12-09",
+"content_len": 237,
+"starter_len": 66,
+"input_len": 17,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3213#1",
+"difficulty": "medium",
+"date": "2023-12-09",
+"content_len": 237,
+"starter_len": 66,
+"input_len": 14,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3219#0",
+"difficulty": "medium",
+"date": "2023-11-25",
+"content_len": 627,
+"starter_len": 92,
+"input_len": 17,
+"out_len": 15,
+"out_kind": "nested1"
+},
+{
+"qid": "3219#1",
+"difficulty": "medium",
+"date": "2023-11-25",
+"content_len": 627,
+"starter_len": 92,
+"input_len": 21,
+"out_len": 19,
+"out_kind": "nested1"
+},
+{
+"qid": "3219#2",
+"difficulty": "medium",
+"date": "2023-11-25",
+"content_len": 627,
+"starter_len": 92,
+"input_len": 20,
+"out_len": 18,
+"out_kind": "nested1"
+},
+{
+"qid": "3220#0",
+"difficulty": "easy",
+"date": "2023-12-09",
+"content_len": 750,
+"starter_len": 76,
+"input_len": 15,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3220#1",
+"difficulty": "easy",
+"date": "2023-12-09",
+"content_len": 750,
+"starter_len": 76,
+"input_len": 9,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3221#0",
+"difficulty": "easy",
+"date": "2023-12-02",
+"content_len": 339,
+"starter_len": 63,
+"input_len": 9,
+"out_len": 2,
+"out_kind": "nested1"
+},
+{
+"qid": "3221#1",
+"difficulty": "easy",
+"date": "2023-12-02",
+"content_len": 339,
+"starter_len": 63,
+"input_len": 15,
+"out_len": 6,
+"out_kind": "nested1"
+},
+{
+"qid": "3223#0",
+"difficulty": "hard",
+"date": "2023-12-02",
+"content_len": 447,
+"starter_len": 69,
+"input_len": 10,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3223#1",
+"difficulty": "hard",
+"date": "2023-12-02",
+"content_len": 447,
+"starter_len": 69,
+"input_len": 13,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3224#0",
+"difficulty": "hard",
+"date": "2023-12-02",
+"content_len": 1062,
+"starter_len": 68,
+"input_len": 8,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3224#1",
+"difficulty": "hard",
+"date": "2023-12-02",
+"content_len": 1062,
+"starter_len": 68,
+"input_len": 5,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3225#0",
+"difficulty": "medium",
+"date": "2023-12-09",
+"content_len": 362,
+"starter_len": 69,
+"input_len": 26,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3225#1",
+"difficulty": "medium",
+"date": "2023-12-09",
+"content_len": 362,
+"starter_len": 69,
+"input_len": 26,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3225#2",
+"difficulty": "medium",
+"date": "2023-12-09",
+"content_len": 362,
+"starter_len": 69,
+"input_len": 23,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3226#0",
+"difficulty": "easy",
+"date": "2023-12-23",
+"content_len": 498,
+"starter_len": 60,
+"input_len": 12,
+"out_len": 12,
+"out_kind": "nested1"
+},
+{
+"qid": "3226#1",
+"difficulty": "easy",
+"date": "2023-12-23",
+"content_len": 498,
+"starter_len": 60,
+"input_len": 6,
+"out_len": 6,
+"out_kind": "nested1"
+},
+{
+"qid": "3227#0",
+"difficulty": "easy",
+"date": "2023-12-16",
+"content_len": 346,
+"starter_len": 84,
+"input_len": 16,
+"out_len": 6,
+"out_kind": "nested1"
+},
+{
+"qid": "3227#1",
+"difficulty": "easy",
+"date": "2023-12-16",
+"content_len": 346,
+"starter_len": 84,
+"input_len": 33,
+"out_len": 6,
+"out_kind": "nested1"
+},
+{
+"qid": "3228#0",
+"difficulty": "medium",
+"date": "2024-01-06",
+"content_len": 286,
+"starter_len": 77,
+"input_len": 25,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3228#1",
+"difficulty": "medium",
+"date": "2024-01-06",
+"content_len": 286,
+"starter_len": 77,
+"input_len": 37,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3228#2",
+"difficulty": "medium",
+"date": "2024-01-06",
+"content_len": 286,
+"starter_len": 77,
+"input_len": 37,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3229#0",
+"difficulty": "medium",
+"date": "2023-12-16",
+"content_len": 831,
+"starter_len": 55,
+"input_len": 15,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3229#1",
+"difficulty": "medium",
+"date": "2023-12-16",
+"content_len": 831,
+"starter_len": 55,
+"input_len": 20,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "3229#2",
+"difficulty": "medium",
+"date": "2023-12-16",
+"content_len": 831,
+"starter_len": 55,
+"input_len": 20,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "3230#0",
+"difficulty": "medium",
+"date": "2023-12-09",
+"content_len": 340,
+"starter_len": 65,
+"input_len": 7,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3230#1",
+"difficulty": "medium",
+"date": "2023-12-09",
+"content_len": 340,
+"starter_len": 65,
+"input_len": 8,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3230#2",
+"difficulty": "medium",
+"date": "2023-12-09",
+"content_len": 340,
+"starter_len": 65,
+"input_len": 9,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3231#0",
+"difficulty": "medium",
+"date": "2023-12-02",
+"content_len": 555,
+"starter_len": 75,
+"input_len": 13,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3231#1",
+"difficulty": "medium",
+"date": "2023-12-02",
+"content_len": 555,
+"starter_len": 75,
+"input_len": 23,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3231#2",
+"difficulty": "medium",
+"date": "2023-12-02",
+"content_len": 555,
+"starter_len": 75,
+"input_len": 12,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3233#0",
+"difficulty": "hard",
+"date": "2024-01-06",
+"content_len": 596,
+"starter_len": 71,
+"input_len": 9,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3233#1",
+"difficulty": "hard",
+"date": "2024-01-06",
+"content_len": 596,
+"starter_len": 71,
+"input_len": 10,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3233#2",
+"difficulty": "hard",
+"date": "2024-01-06",
+"content_len": 596,
+"starter_len": 71,
+"input_len": 8,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3234#0",
+"difficulty": "medium",
+"date": "2023-12-09",
+"content_len": 284,
+"starter_len": 88,
+"input_len": 45,
+"out_len": 6,
+"out_kind": "nested1"
+},
+{
+"qid": "3234#1",
+"difficulty": "medium",
+"date": "2023-12-09",
+"content_len": 284,
+"starter_len": 88,
+"input_len": 24,
+"out_len": 2,
+"out_kind": "nested1"
+},
+{
+"qid": "3235#0",
+"difficulty": "medium",
+"date": "2023-12-23",
+"content_len": 825,
+"starter_len": 122,
+"input_len": 95,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "3235#1",
+"difficulty": "medium",
+"date": "2023-12-23",
+"content_len": 825,
+"starter_len": 122,
+"input_len": 42,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "3235#2",
+"difficulty": "medium",
+"date": "2023-12-23",
+"content_len": 825,
+"starter_len": 122,
+"input_len": 33,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "3236#0",
+"difficulty": "easy",
+"date": "2024-01-06",
+"content_len": 336,
+"starter_len": 58,
+"input_len": 15,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3236#1",
+"difficulty": "easy",
+"date": "2024-01-06",
+"content_len": 336,
+"starter_len": 58,
+"input_len": 24,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "3239#0",
+"difficulty": "medium",
+"date": "2024-01-06",
+"content_len": 305,
+"starter_len": 71,
+"input_len": 4,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3239#1",
+"difficulty": "medium",
+"date": "2024-01-06",
+"content_len": 305,
+"starter_len": 71,
+"input_len": 4,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3239#2",
+"difficulty": "medium",
+"date": "2024-01-06",
+"content_len": 305,
+"starter_len": 71,
+"input_len": 5,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3240#0",
+"difficulty": "medium",
+"date": "2024-01-13",
+"content_len": 529,
+"starter_len": 60,
+"input_len": 3,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3240#1",
+"difficulty": "medium",
+"date": "2024-01-13",
+"content_len": 529,
+"starter_len": 60,
+"input_len": 3,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3242#0",
+"difficulty": "easy",
+"date": "2024-01-13",
+"content_len": 256,
+"starter_len": 64,
+"input_len": 18,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3242#1",
+"difficulty": "easy",
+"date": "2024-01-13",
+"content_len": 256,
+"starter_len": 64,
+"input_len": 15,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3243#0",
+"difficulty": "hard",
+"date": "2024-01-06",
+"content_len": 554,
+"starter_len": 91,
+"input_len": 14,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3243#1",
+"difficulty": "hard",
+"date": "2024-01-06",
+"content_len": 554,
+"starter_len": 91,
+"input_len": 13,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3243#2",
+"difficulty": "hard",
+"date": "2024-01-06",
+"content_len": 554,
+"starter_len": 91,
+"input_len": 18,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3244#0",
+"difficulty": "medium",
+"date": "2024-01-20",
+"content_len": 501,
+"starter_len": 62,
+"input_len": 12,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3244#1",
+"difficulty": "medium",
+"date": "2024-01-20",
+"content_len": 501,
+"starter_len": 62,
+"input_len": 16,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3244#2",
+"difficulty": "medium",
+"date": "2024-01-20",
+"content_len": 501,
+"starter_len": 62,
+"input_len": 9,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3245#0",
+"difficulty": "medium",
+"date": "2024-01-13",
+"content_len": 373,
+"starter_len": 81,
+"input_len": 56,
+"out_len": 8,
+"out_kind": "nested1"
+},
+{
+"qid": "3245#1",
+"difficulty": "medium",
+"date": "2024-01-13",
+"content_len": 373,
+"starter_len": 81,
+"input_len": 16,
+"out_len": 3,
+"out_kind": "nested1"
+},
+{
+"qid": "3246#0",
+"difficulty": "easy",
+"date": "2023-12-30",
+"content_len": 540,
+"starter_len": 61,
+"input_len": 15,
+"out_len": 4,
+"out_kind": "bool"
+},
+{
+"qid": "3246#1",
+"difficulty": "easy",
+"date": "2023-12-30",
+"content_len": 540,
+"starter_len": 61,
+"input_len": 13,
+"out_len": 4,
+"out_kind": "bool"
+},
+{
+"qid": "3246#2",
+"difficulty": "easy",
+"date": "2023-12-30",
+"content_len": 540,
+"starter_len": 61,
+"input_len": 15,
+"out_len": 5,
+"out_kind": "bool"
+},
+{
+"qid": "3249#0",
+"difficulty": "medium",
+"date": "2024-01-06",
+"content_len": 566,
+"starter_len": 65,
+"input_len": 14,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3249#1",
+"difficulty": "medium",
+"date": "2024-01-06",
+"content_len": 566,
+"starter_len": 65,
+"input_len": 14,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3251#0",
+"difficulty": "easy",
+"date": "2024-01-06",
+"content_len": 385,
+"starter_len": 73,
+"input_len": 16,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "3251#1",
+"difficulty": "easy",
+"date": "2024-01-06",
+"content_len": 385,
+"starter_len": 73,
+"input_len": 16,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "3252#0",
+"difficulty": "easy",
+"date": "2023-12-23",
+"content_len": 547,
+"starter_len": 69,
+"input_len": 12,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "3252#1",
+"difficulty": "easy",
+"date": "2023-12-23",
+"content_len": 547,
+"starter_len": 69,
+"input_len": 12,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3252#2",
+"difficulty": "easy",
+"date": "2023-12-23",
+"content_len": 547,
+"starter_len": 69,
+"input_len": 12,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3261#0",
+"difficulty": "hard",
+"date": "2024-01-27",
+"content_len": 406,
+"starter_len": 72,
+"input_len": 17,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3261#1",
+"difficulty": "hard",
+"date": "2024-01-27",
+"content_len": 406,
+"starter_len": 72,
+"input_len": 22,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3261#2",
+"difficulty": "hard",
+"date": "2024-01-27",
+"content_len": 406,
+"starter_len": 72,
+"input_len": 29,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "3262#0",
+"difficulty": "medium",
+"date": "2023-12-23",
+"content_len": 651,
+"starter_len": 60,
+"input_len": 9,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "3262#1",
+"difficulty": "medium",
+"date": "2023-12-23",
+"content_len": 651,
+"starter_len": 60,
+"input_len": 23,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "3262#2",
+"difficulty": "medium",
+"date": "2023-12-23",
+"content_len": 651,
+"starter_len": 60,
+"input_len": 10,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "3263#0",
+"difficulty": "easy",
+"date": "2024-01-20",
+"content_len": 307,
+"starter_len": 55,
+"input_len": 13,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3263#1",
+"difficulty": "easy",
+"date": "2024-01-20",
+"content_len": 307,
+"starter_len": 55,
+"input_len": 9,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "3263#2",
+"difficulty": "easy",
+"date": "2024-01-20",
+"content_len": 307,
+"starter_len": 55,
+"input_len": 13,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "3265#0",
+"difficulty": "medium",
+"date": "2024-02-03",
+"content_len": 348,
+"starter_len": 70,
+"input_len": 20,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "3265#1",
+"difficulty": "medium",
+"date": "2024-02-03",
+"content_len": 348,
+"starter_len": 70,
+"input_len": 18,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "3265#2",
+"difficulty": "medium",
+"date": "2024-02-03",
+"content_len": 348,
+"starter_len": 70,
+"input_len": 18,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "3267#0",
+"difficulty": "medium",
+"date": "2023-12-30",
+"content_len": 461,
+"starter_len": 48,
+"input_len": 6,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3267#1",
+"difficulty": "medium",
+"date": "2023-12-30",
+"content_len": 461,
+"starter_len": 48,
+"input_len": 8,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "3267#2",
+"difficulty": "medium",
+"date": "2023-12-30",
+"content_len": 461,
+"starter_len": 48,
+"input_len": 8,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3269#0",
+"difficulty": "medium",
+"date": "2024-02-10",
+"content_len": 486,
+"starter_len": 86,
+"input_len": 25,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3269#1",
+"difficulty": "medium",
+"date": "2024-02-10",
+"content_len": 486,
+"starter_len": 86,
+"input_len": 35,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3279#0",
+"difficulty": "medium",
+"date": "2024-01-27",
+"content_len": 998,
+"starter_len": 53,
+"input_len": 3,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3279#1",
+"difficulty": "medium",
+"date": "2024-01-27",
+"content_len": 998,
+"starter_len": 53,
+"input_len": 3,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3291#0",
+"difficulty": "medium",
+"date": "2024-01-20",
+"content_len": 293,
+"starter_len": 57,
+"input_len": 17,
+"out_len": 4,
+"out_kind": "bool"
+},
+{
+"qid": "3291#1",
+"difficulty": "medium",
+"date": "2024-01-20",
+"content_len": 293,
+"starter_len": 57,
+"input_len": 15,
+"out_len": 4,
+"out_kind": "bool"
+},
+{
+"qid": "3291#2",
+"difficulty": "medium",
+"date": "2024-01-20",
+"content_len": 293,
+"starter_len": 57,
+"input_len": 16,
+"out_len": 5,
+"out_kind": "bool"
+},
+{
+"qid": "3292#0",
+"difficulty": "medium",
+"date": "2024-02-24",
+"content_len": 619,
+"starter_len": 97,
+"input_len": 34,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3292#1",
+"difficulty": "medium",
+"date": "2024-02-24",
+"content_len": 619,
+"starter_len": 97,
+"input_len": 28,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3292#2",
+"difficulty": "medium",
+"date": "2024-02-24",
+"content_len": 619,
+"starter_len": 97,
+"input_len": 16,
+"out_len": 2,
+"out_kind": "int"
+},
+{
+"qid": "3297#0",
+"difficulty": "medium",
+"date": "2024-02-03",
+"content_len": 434,
+"starter_len": 71,
+"input_len": 11,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3297#1",
+"difficulty": "medium",
+"date": "2024-02-03",
+"content_len": 434,
+"starter_len": 71,
+"input_len": 11,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3297#2",
+"difficulty": "medium",
+"date": "2024-02-03",
+"content_len": 434,
+"starter_len": 71,
+"input_len": 12,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3298#0",
+"difficulty": "hard",
+"date": "2024-02-17",
+"content_len": 452,
+"starter_len": 63,
+"input_len": 15,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3298#1",
+"difficulty": "hard",
+"date": "2024-02-17",
+"content_len": 452,
+"starter_len": 63,
+"input_len": 13,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3299#0",
+"difficulty": "medium",
+"date": "2024-01-27",
+"content_len": 509,
+"starter_len": 57,
+"input_len": 15,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3299#1",
+"difficulty": "medium",
+"date": "2024-01-27",
+"content_len": 509,
+"starter_len": 57,
+"input_len": 12,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3308#0",
+"difficulty": "medium",
+"date": "2024-02-17",
+"content_len": 641,
+"starter_len": 53,
+"input_len": 10,
+"out_len": 4,
+"out_kind": "string"
+},
+{
+"qid": "3308#1",
+"difficulty": "medium",
+"date": "2024-02-17",
+"content_len": 641,
+"starter_len": 53,
+"input_len": 6,
+"out_len": 6,
+"out_kind": "string"
+},
+{
+"qid": "3309#0",
+"difficulty": "easy",
+"date": "2024-02-17",
+"content_len": 536,
+"starter_len": 67,
+"input_len": 27,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3309#1",
+"difficulty": "easy",
+"date": "2024-02-17",
+"content_len": 536,
+"starter_len": 67,
+"input_len": 28,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3309#2",
+"difficulty": "easy",
+"date": "2024-02-17",
+"content_len": 536,
+"starter_len": 67,
+"input_len": 14,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3311#0",
+"difficulty": "easy",
+"date": "2024-02-03",
+"content_len": 660,
+"starter_len": 65,
+"input_len": 10,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3311#1",
+"difficulty": "easy",
+"date": "2024-02-03",
+"content_len": 660,
+"starter_len": 65,
+"input_len": 14,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3312#0",
+"difficulty": "easy",
+"date": "2024-01-27",
+"content_len": 462,
+"starter_len": 50,
+"input_len": 8,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3312#1",
+"difficulty": "easy",
+"date": "2024-01-27",
+"content_len": 462,
+"starter_len": 50,
+"input_len": 10,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3317#0",
+"difficulty": "medium",
+"date": "2024-02-10",
+"content_len": 511,
+"starter_len": 74,
+"input_len": 20,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3317#1",
+"difficulty": "medium",
+"date": "2024-02-10",
+"content_len": 511,
+"starter_len": 74,
+"input_len": 13,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3317#2",
+"difficulty": "medium",
+"date": "2024-02-10",
+"content_len": 511,
+"starter_len": 74,
+"input_len": 17,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3320#0",
+"difficulty": "easy",
+"date": "2024-02-17",
+"content_len": 459,
+"starter_len": 57,
+"input_len": 15,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3320#1",
+"difficulty": "easy",
+"date": "2024-02-17",
+"content_len": 459,
+"starter_len": 57,
+"input_len": 15,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3324#0",
+"difficulty": "easy",
+"date": "2024-02-24",
+"content_len": 331,
+"starter_len": 62,
+"input_len": 18,
+"out_len": 4,
+"out_kind": "bool"
+},
+{
+"qid": "3324#1",
+"difficulty": "easy",
+"date": "2024-02-24",
+"content_len": 331,
+"starter_len": 62,
+"input_len": 12,
+"out_len": 5,
+"out_kind": "bool"
+},
+{
+"qid": "3329#0",
+"difficulty": "medium",
+"date": "2024-02-17",
+"content_len": 712,
+"starter_len": 80,
+"input_len": 19,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3329#1",
+"difficulty": "medium",
+"date": "2024-02-17",
+"content_len": 712,
+"starter_len": 80,
+"input_len": 19,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3331#0",
+"difficulty": "easy",
+"date": "2024-03-02",
+"content_len": 260,
+"starter_len": 65,
+"input_len": 20,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3331#1",
+"difficulty": "easy",
+"date": "2024-03-02",
+"content_len": 260,
+"starter_len": 65,
+"input_len": 17,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3331#2",
+"difficulty": "easy",
+"date": "2024-03-02",
+"content_len": 260,
+"starter_len": 65,
+"input_len": 17,
+"out_len": 1,
+"out_kind": "int"
+},
+{
+"qid": "3347#0",
+"difficulty": "easy",
+"date": "2024-03-02",
+"content_len": 614,
+"starter_len": 61,
+"input_len": 9,
+"out_len": 9,
+"out_kind": "nested1"
+},
+{
+"qid": "3347#1",
+"difficulty": "easy",
+"date": "2024-03-02",
+"content_len": 614,
+"starter_len": 61,
+"input_len": 12,
+"out_len": 12,
+"out_kind": "nested1"
+}
+]

@@ -1,0 +1,158 @@
+{
+  "name": "zz-hd-top-harness",
+  "model": "unsloth/Qwen3.8-Flash-Next-GGUF:UD-Q2_K_XL",
+  "server_model": "unsloth/Qwen3.8-Flash-Next-GGUF:UD-Q2_K_XL",
+  "harness": "yes",
+  "harness_note": "http://127.0.0.1:3080",
+  "harness_source": "--harness flag",
+  "harness_probe": {
+    "start": {
+      "target": "http://127.0.0.1:3080",
+      "checked_at": "2026-09-26T20:29:05",
+      "reachable": true,
+      "status": 401
+    },
+    "end": {
+      "target": "http://127.0.0.1:3080",
+      "checked_at": "2026-09-26T21:22:02",
+      "reachable": true,
+      "status": 401
+    }
+  },
+  "generated_at": "2026-09-26T21:22:02",
+  "config": {
+    "n": 1,
+    "temperature": 0.2,
+    "top_p": 0.95,
+    "max_tokens": 16384,
+    "release": "release_latest",
+    "start_date": null,
+    "end_date": null,
+    "difficulty": null,
+    "limit": null,
+    "random_sample": 60,
+    "hardest": 60,
+    "mix": null,
+    "sample_note": null,
+    "extractor": "auto",
+    "eval_timeout": 6,
+    "scenario": "top",
+    "exec_cot": false,
+    "problems_total": 60
+  },
+  "sample_hash": "d732b02367fb",
+  "counts": {
+    "hard": 60
+  },
+  "hardest_tier": {
+    "n": 60,
+    "pass@1": 0.95
+  },
+  "pool": {
+    "n": 442,
+    "questions": 182,
+    "labels": {
+      "easy": 147,
+      "medium": 223,
+      "hard": 72
+    },
+    "date_min": "2023-05-07",
+    "date_max": "2024-03-02",
+    "weight_min": 176,
+    "weight_median": 514,
+    "weight_max": 1308,
+    "biggest": "2791#1"
+  },
+  "generation_stats": {
+    "generated": 60,
+    "failed_requests": 0,
+    "not_generated": 0,
+    "truncated_at_max_tokens": 1,
+    "truncated_pct": 1.7,
+    "problems_not_truncated": 59,
+    "pass_rate_when_not_truncated": 96.6,
+    "empty_outputs": 0
+  },
+  "score": 95.0,
+  "metrics": {
+    "pass@1": 0.95
+  },
+  "metrics_by_difficulty": {
+    "hard": {
+      "pass@1": 0.95
+    }
+  },
+  "speed": {
+    "total_generation_seconds": 6767.0,
+    "total_completion_tokens": 80237,
+    "mean_tokens_per_sec": 11.86,
+    "mean_seconds_per_problem": 112.8,
+    "avg_prompt_tokens": 321.0,
+    "avg_completion_tokens": 1337.0,
+    "prefill_tokens_per_sec": 148.6,
+    "decode_tokens_per_sec": 18.6,
+    "speed_probe": null
+  },
+  "per_problem_pass": {
+    "2849#0": 1.0,
+    "2849#1": 1.0,
+    "2879#0": 0.0,
+    "2879#1": 1.0,
+    "2879#2": 1.0,
+    "2884#0": 1.0,
+    "2884#1": 1.0,
+    "2919#0": 1.0,
+    "2919#1": 1.0,
+    "2919#2": 1.0,
+    "2921#0": 1.0,
+    "2921#1": 1.0,
+    "2952#0": 1.0,
+    "2952#1": 1.0,
+    "3017#0": 0.0,
+    "3017#1": 1.0,
+    "3017#2": 1.0,
+    "3024#0": 1.0,
+    "3024#1": 1.0,
+    "3025#0": 1.0,
+    "3025#1": 1.0,
+    "3025#2": 1.0,
+    "3032#0": 1.0,
+    "3032#1": 1.0,
+    "3047#0": 0.0,
+    "3047#1": 1.0,
+    "3091#0": 1.0,
+    "3091#1": 1.0,
+    "3091#2": 1.0,
+    "3153#0": 1.0,
+    "3153#1": 1.0,
+    "3184#0": 1.0,
+    "3184#1": 1.0,
+    "3184#2": 1.0,
+    "3196#0": 1.0,
+    "3196#1": 1.0,
+    "3203#0": 1.0,
+    "3203#1": 1.0,
+    "3203#2": 1.0,
+    "3211#0": 1.0,
+    "3211#1": 1.0,
+    "3211#2": 1.0,
+    "3212#0": 1.0,
+    "3212#1": 1.0,
+    "3212#2": 1.0,
+    "3223#0": 1.0,
+    "3223#1": 1.0,
+    "3224#0": 1.0,
+    "3224#1": 1.0,
+    "3233#0": 1.0,
+    "3233#1": 1.0,
+    "3233#2": 1.0,
+    "3243#0": 1.0,
+    "3243#1": 1.0,
+    "3243#2": 1.0,
+    "3261#0": 1.0,
+    "3261#1": 1.0,
+    "3261#2": 1.0,
+    "3298#0": 1.0,
+    "3298#1": 1.0
+  }
+}

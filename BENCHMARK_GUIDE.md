@@ -106,12 +106,41 @@ speed: decode 18.3 tok/s, prefill/lecture 365.8 tok/s
 --skip-generate           re-score existing generations only
 --skip-eval               generation only
 --hardest N               spend N slots of the run on the hardest problems the release
-                          has (hard first, then most test cases, then newest). With
+                          has (its own hard label first, then newest contest, then
+                          biggest). With
                           --random-sample 100 the run stays exactly 100: 25 hardest +
                           the rest spread evenly over easy/medium/hard. Alone the run IS
                           those N; with --limit it is ignored. Changes the sample hash,
                           so old rows stay separate. A sample with too little hard in it
                           lets a good model print 100% and says nothing
+--mix 50/25/15/10         fill the whole sample by shares instead of taking one
+                          --hardest tier: 50% hardest, 25% hard, 15% medium, 10% easy.
+                          Takes the place of --hardest and needs --random-sample; the
+                          total stays what --random-sample says, nothing is added on
+                          top. Long form --mix hardest=50,hard=25,medium=15,easy=10. A
+                          share the release cannot fill is printed as short (got 50
+                          hardest, 9/25 hard) and refilled with the best that is left.
+                          Pair it with --start-date 2025-01-01 so the sample cannot hold
+                          a problem the model has already read
+--pool-info               ask the loaded pool what it holds, with no model and no
+                          generation: rows, distinct questions, labels, date range,
+                          sizes, which shares a --mix can fill, what --bundle sizes
+                          it could supply, and for the fast
+                          scenarios whether that scenario can discriminate at all
+--bundle K                fast scenarios only: every scored item = K calls answered
+                          in ONE prompt, all-or-nothing (item pass ~ per-call pass^K
+                          - the headroom dial for pools that saturate at 100%). exec
+                          bundles K different (program, call) rows, top bundles K
+                          tests of one problem; --random-sample counts items then,
+                          the score line prints the per-call rate too, and the report
+                          marks the row xK. Ceilings (per --pool-info): exec 233/151/
+                          76/74/71 items for K=2..6, top 183/77 for K=2/3. --bundle 1
+                          (default) is the classic one-call-per-row mode
+--harden-target PCT       aim under PCT%: a saturated run prints the exact next
+                          command that can be hard for this model (bigger --bundle,
+                          or the widest-coverage K at per-call 100%; --mix +
+                          --start-date on code_generation). Default bar 90 fast /
+                          99 long - no run gets to print a smiling 100% quietly
 --both                    one command, both rows: the scenario runs twice on identical
                           problems - pass 1 answered no (nothing else on the model
                           server), pass 2 answered yes (the agent chat working). Asked
@@ -161,17 +190,29 @@ speed: decode 18.3 tok/s, prefill/lecture 365.8 tok/s
   (your chat/dsh sessions included): the `-np 1` server queues requests, and
   queue time inflates wall-based speed numbers.
 * Same `--random-sample` size and same `--n` across models; check `sample`
-  column matches in `bench/report.md`. `--hardest N` changes that hash on purpose:
-  a row with a hardest tier is comparable only with the same set. The tier is scored
-  by itself in the `hardest` column (`-` for rows made without one).
-* **A clean 100% is a claim about the sample, not about the model.** The two fast
-  scenarios have short answers and a strong model sweeps them (`code_execution`
-  measured 98-100% here, IQ4_XS and Q2_K_XL alike) — the exec release holds only
-  9 problems flagged `hard` in the unfiltered pool, so `--hardest 25` there says
-  `25 hardest (9 hard, 16 medium)` and still cannot bite. Where the difficulty split
-  actually separates models is code generation: hard pass@1 sat at 21-24% while
-  easy/medium sat at 86-100%. Read the split and the `hardest` line, and put
-  `--hardest 25` in the line whenever a row reads 100%.
+  column matches in `bench/report.md`. `--hardest N` and `--mix` change that hash on
+  purpose: a row with a hard tier is comparable only with the same set. The tier is
+  scored by itself in the `hardest` column (`-` for rows made without one).
+* **A clean 100% is a claim about the sample, not about the model.** The ceilings are
+  measured here: `code_execution` took 98–100% on a 100-row sample and **100% on the 60
+  hardest rows its release has** — 479 rows built out of 92 distinct questions, seven
+  months of 2023, 9 of them flagged `hard` — and `test_output_prediction` **95% on its 60
+  hardest**. No sample of those pools is hard, so `--bundle K` makes the *answer* harder
+  instead: K calls in one prompt, all-or-nothing, item pass ≈ per-call pass^K. Bundled
+  and measured too: exec **held 100% at K=4 (160 calls)** on the quant that saturates it,
+  top came out **95.8% at K=2**. Any fast
+  run that reaches 90% prints that verdict under its own score **and the exact next
+  command that can be hard** (bigger K from the observed per-call rate, or the widest
+  net the pool holds — the "harden ratchet"; `--harden-target PCT` moves the bar).
+  `--pool-info` prints each pool's bundle ceilings (exec 233/151/76/74/71 items for
+  K=2..6, top 183/77 for K=2/3) with no GPU touched. Where difficulty separates models
+  is code generation: 1055 problems, 350
+  flagged hard, contests up to 2025-04-06, hard pass@1 21–24% overall. And within it the
+  age of the problem is what bites — hard problems by year: **2023 50%, 2024 18%, 2025
+  12%**, while easy and medium sat at 86–100% whatever their year. So the recipe that
+  stays below 100% for a strong model is
+  `--scenario code_generation --random-sample 100 --mix 50/25/15/10 --start-date
+  2025-01-01`, and `--hardest 25` is the lighter version of the same idea.
 * **pass@1 with n=1** on 100 problems ≈ ±5%; for publishable numbers use
   `--n 10` on the full set (~10× time).
 * Thinking models: score at the setting you'd actually use, but be consistent.
@@ -205,8 +246,8 @@ speed: decode 18.3 tok/s, prefill/lecture 365.8 tok/s
 | Scenario | Dataset | What the model must do |
 |---|---|---|
 | `code_generation` (default) | `livecodebench/code_generation_lite` | Solve the problem: write the program. **Main leaderboard scenario — the best single measure of coding + problem solving.** |
-| `code_execution` | `livecodebench/execution-v2` (479 items) | Read a given function + a call, predict the exact output literal (no execution tools). Pure "simulate the code mentally". |
-| `test_output_prediction` | `livecodebench/test_generation` (442 items) | Given problem + starter + one test input, write the full `assert f(...) == <correct output>`. |
+| `code_execution` | `livecodebench/execution-v2` (479 items) | Read a given function + a call, predict the exact output literal (no execution tools). Pure "simulate the code mentally". With `--bundle K`: K such programs + calls per answer, all right or the item fails. |
+| `test_output_prediction` | `livecodebench/test_generation` (442 items) | Given problem + starter + one test input, write the full `assert f(...) == <correct output>`. With `--bundle K`: K tests of the same problem per answer. |
 
 Prompts, answer extraction and grading are ports of the official
 `lcb_runner` code for each scenario, so the three SCOREs are "official-style".
@@ -215,12 +256,13 @@ or `-top` appended (plus the harness suffix) — so the fast runs never disturb 
 code_generation run:
 
 ```
-python lcb_bench.py --scenario code_execution --speed-probe --random-sample 100 --hardest 25 --workers 1 --max-tokens 16384 --eval-workers 8 --both
-python lcb_bench.py --scenario test_output_prediction --speed-probe --random-sample 100 --hardest 25 --workers 1 --max-tokens 16384 --eval-workers 8 --both
+python lcb_bench.py --scenario code_execution --bundle 3 --random-sample 100 --hardest 25 --speed-probe --workers 1 --max-tokens 16384 --eval-workers 8 --both
+python lcb_bench.py --scenario test_output_prediction --bundle 2 --random-sample 100 --hardest 25 --speed-probe --workers 1 --max-tokens 16384 --eval-workers 8 --both
 ```
 
 The two extra scenarios are much shorter than code_generation (most answers
 are one line even with thinking on), so they run ~10-30x faster; sampling 100
 items is quick. `bench/report.md` has a `scenario` column, so all your rows
-sitting side by side. `--exec-cot` switches code_execution to the official
+sitting side by side, and a `bundle` column (`x3` rows compare only with `x3`
+rows). `--exec-cot` switches code_execution to the official
 step-by-step-example prompt (default is the direct prompt).

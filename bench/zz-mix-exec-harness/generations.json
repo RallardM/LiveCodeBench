@@ -1,0 +1,92 @@
+[
+  {
+    "question_id": "2919#1",
+    "output_list": [
+      "[ANSWER]\nassert maxIncreasingGroups(A = [1, 1]) == 1\n[/ANSWER]"
+    ],
+    "code_list": [
+      "1"
+    ]
+  },
+  {
+    "question_id": "2919#3",
+    "output_list": [
+      "[ANSWER]\nassert maxIncreasingGroups(usageLimits = [2, 1, 2]) == 2\n[/ANSWER]"
+    ],
+    "code_list": [
+      "2"
+    ]
+  },
+  {
+    "question_id": "2919#4",
+    "output_list": [
+      "[ANSWER]\nassert maxIncreasingGroups(usageLimits = [1, 2, 5]) == 3\n[/ANSWER]"
+    ],
+    "code_list": [
+      "3"
+    ]
+  },
+  {
+    "question_id": "3025#0",
+    "output_list": [
+      "[ANSWER]\nassert minOperations(nums = [1, 32, 1], target = 35) == -1\n[/ANSWER]"
+    ],
+    "code_list": [
+      "-1"
+    ]
+  },
+  {
+    "question_id": "3025#1",
+    "output_list": [
+      "[ANSWER]\nassert minOperations(nums = [1, 32, 1], target = 35) == -1\n[/ANSWER]"
+    ],
+    "code_list": [
+      "-1"
+    ]
+  },
+  {
+    "question_id": "3091#0",
+    "output_list": [
+      "[ANSWER]\nassert countSubMultisets(nums = [1, 2, 2, 3], l = 6, r = 6) == 1\n[/ANSWER]"
+    ],
+    "code_list": [
+      "1"
+    ]
+  },
+  {
+    "question_id": "3194#3",
+    "output_list": [
+      "[ANSWER]\nassert findWordsContaining(words = ['abc', 'bcd', 'aaaa', 'cbc'], x = 'a') == [0, 2]\n[/ANSWER]"
+    ],
+    "code_list": [
+      "[0, 2]"
+    ]
+  },
+  {
+    "question_id": "3210#3",
+    "output_list": [
+      "[ANSWER]\nassert beautifulSubstrings(s = 'bcdf', k = 1) == 0\n[/ANSWER]"
+    ],
+    "code_list": [
+      "0"
+    ]
+  },
+  {
+    "question_id": "3211#0",
+    "output_list": [
+      "[ANSWER]\nassert findMaximumLength(nums = [5, 2, 2]) == 1\n[/ANSWER]"
+    ],
+    "code_list": [
+      "1"
+    ]
+  },
+  {
+    "question_id": "3219#0",
+    "output_list": [
+      "[ANSWER]\nassert lexicographicallySmallestArray(nums = [1, 5, 3, 9, 8], limit = 2) == [1, 3, 5, 8, 9]\n[/ANSWER]"
+    ],
+    "code_list": [
+      "[1, 3, 5, 8, 9]"
+    ]
+  }
+]

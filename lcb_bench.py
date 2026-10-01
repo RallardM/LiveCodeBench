@@ -117,6 +117,15 @@ SAMPLE_NOTE = ""
 # ... and which question_ids the hardest tier is made of, so their pass rate can
 # be reported on its own instead of blended into "hard".
 HARDEST_IDS = set()
+# ... and what the pool the sample came from looks like (rows, questions, labels,
+# date range). That is what a 100% is measured against.
+POOL_FACTS = {}
+# The --mix spec as typed, so a run's note reads `mix 50/25/15/10: ...` and not a
+# python dict.
+MIX_SPEC = ""
+# The --bundle size (fast scenarios): every scored item asks K single calls in
+# one answer and is all-or-nothing. 1 = off, the classic one-call-per-row mode.
+BUNDLE_K = 1
 # The console answers commands typed while a run is going; see bench_command.
 CONSOLE_LIVE = False
 
@@ -202,7 +211,7 @@ def extract_code(model_output: str, extractor: str) -> str:
 
 
 def load_problems(release, start_date, end_date, difficulty, limit,
-                  random_sample=0, sample_ids_file=None, hardest=0):
+                  random_sample=0, sample_ids_file=None, hardest=0, mix=None):
     # Imported lazily so spawned eval children don't pay this cost.
     from datasets import load_dataset
 
@@ -252,14 +261,19 @@ def load_problems(release, start_date, end_date, difficulty, limit,
         )
     return filter_sample(
         problems, start_date, end_date, difficulty, limit,
-        random_sample, sample_ids_file, hardest=hardest,
+        random_sample, sample_ids_file, hardest=hardest, mix=mix,
     )
 
 
 def problem_weight(problem):
-    """Rough hardness signal inside a difficulty band: how many test cases the
-    answer has to satisfy at once. Unknown for now (the fast scenarios ship one
-    input/output pair per row), so 0 - the other sort keys decide there."""
+    """Rough hardness signal inside a difficulty band. For code generation it is
+    how many test cases one answer has to satisfy at once. The fast scenarios
+    ship one call per row, so their loaders store their own `weight` (how much
+    code / problem text the single call carries) - see load_exec_problems and
+    load_top_problems. Unknown: 0, the other sort keys decide there."""
+    stored = problem.get("weight")
+    if stored is not None:
+        return stored
     try:
         data = json.loads(problem.get("eval_payload") or "")
     except Exception:
@@ -272,19 +286,151 @@ def problem_weight(problem):
 
 
 HARDNESS_RANK = {"hard": 0, "medium": 1, "easy": 2}
+MIX_TIERS = ("hardest", "hard", "medium", "easy")
+
+
+def _big_new_first(p):
+    """Sort key inside one difficulty band: newest contest first, then the
+    biggest problem. Age goes first because our own runs say it matters most:
+    one model passed 50% of the hard problems published in 2023 and 12% of the
+    hard ones from 2025. A problem the model has already read is not a hard
+    problem, it is a recall test."""
+    return (-p["contest_date"].timestamp(), -problem_weight(p),
+            str(p["question_id"]))
+
+
+def _hard_key(p):
+    """Full hardness key of one problem: dataset label band first, then (inside a
+    band) newest contest and biggest problem."""
+    return (HARDNESS_RANK.get(str(p["difficulty"]).lower(), 1),) + _big_new_first(p)
 
 
 def hardest_picks(pool, count, exclude=()):
     """The `count` hardest problems of `pool` that are not already `exclude`d:
-    hard before medium before easy, then the most test cases, then the newest
-    contest (recent problems are less memorised)."""
+    hard before medium before easy, and inside a band the newest (least
+    memorised) and biggest problems first."""
     skip = {str(q) for q in exclude}
     left = [p for p in pool if str(p["question_id"]) not in skip]
-    left.sort(key=lambda p: (HARDNESS_RANK.get(str(p["difficulty"]).lower(), 1),
-                             -problem_weight(p),
-                             -p["contest_date"].timestamp(),
-                             str(p["question_id"])))
+    left.sort(key=_hard_key)
     return left[:count]
+
+
+def parse_mix(spec):
+    """`50/25/15/10` (or `hardest=50,hard=25,medium=15,easy=10`) -> the share of
+    one sample every tier should take. Positional numbers fill
+    hardest/hard/medium/easy in that order; missing tiers get nothing."""
+    if not spec:
+        return None
+    parts = [p.strip() for p in spec.replace(",", "/").split("/") if p.strip()]
+    named, plain = {}, []
+    for p in parts:
+        if "=" in p:
+            k, _, v = p.partition("=")
+            named[k.strip().lower()] = float(v)
+        else:
+            plain.append(float(p))
+    if named:
+        unknown = sorted(set(named) - set(MIX_TIERS))
+        if unknown:
+            raise ValueError(f"--mix: unknown tier '{', '.join(unknown)}' - use"
+                             " hardest/hard/medium/easy")
+        shares = {t: float(named.get(t, 0)) for t in MIX_TIERS}
+    else:
+        if len(plain) > len(MIX_TIERS):
+            raise ValueError("--mix: at most four numbers"
+                             " (hardest/hard/medium/easy)")
+        shares = {t: (plain[i] if i < len(plain) else 0.0)
+                  for i, t in enumerate(MIX_TIERS)}
+    if any(v < 0 for v in shares.values()):
+        raise ValueError("--mix: a share cannot be negative")
+    total = sum(shares.values())
+    if total <= 0:
+        raise ValueError("--mix: at least one share must be above zero")
+    return {t: v / total for t, v in shares.items() if v > 0}
+
+
+def mix_pick(pool, count, spec, spec_text=""):
+    """Fill `count` problems from `pool` in the tier proportions of `spec`.
+    `hardest` is the structural ranking of the whole pool (label, then newest,
+    then biggest); the other tiers are the dataset's own labels, newest first
+    inside each. The tiers are filled in the order of how little they have to
+    give per share asked - a scarce tier must not starve because a bigger tier
+    took its problems first - and `hardest` comes last, since it can take
+    anything. A tier the pool cannot fill is said out loud and its empty slots
+    go to the best problems still on the table, never quietly to a nicer
+    difficulty. Returns (picked, ids of the hardest tier, note)."""
+    want = {t: int(round(v * count)) for t, v in spec.items()}
+    slack = count - sum(want.values())
+    if slack and want:
+        want[max(spec, key=lambda t: spec[t])] += slack
+    supply = {}
+    for p in pool:
+        k = str(p["difficulty"]).lower()
+        supply[k] = supply.get(k, 0) + 1
+    named = [t for t in MIX_TIERS if t != "hardest" and want.get(t)]
+    named.sort(key=lambda t: (supply.get(t, 0) / want[t], t))
+    order = named + (["hardest"] if want.get("hardest") else [])
+    picked, got, tier_ids = [], {}, set()
+    for tier in order:
+        k = want[tier]
+        taken = {str(p["question_id"]) for p in picked}
+        rows = [p for p in pool if str(p["question_id"]) not in taken]
+        if tier == "hardest":
+            # this bench's own ranking of the whole pool, not a dataset label
+            rows.sort(key=_hard_key)
+        else:
+            rows = [p for p in rows if str(p["difficulty"]).lower() == tier]
+            rows.sort(key=_big_new_first)
+        chunk = rows[:k]
+        if tier == "hardest":
+            tier_ids = {str(p["question_id"]) for p in chunk}
+        got[tier] = len(chunk)
+        picked += chunk
+    short = count - len(picked)
+    if short > 0:
+        taken = {str(p["question_id"]) for p in picked}
+        rest = [p for p in pool if str(p["question_id"]) not in taken]
+        rest.sort(key=_hard_key)
+        picked += rest[:short]
+    labels = {}
+    for p in picked:
+        k = str(p["difficulty"]).lower()
+        labels[k] = labels.get(k, 0) + 1
+    parts = [f"{got.get(t, 0)}" + (f"/{want[t]}" if want.get(t) != got.get(t) else "")
+             + f" {t}" for t in MIX_TIERS if want.get(t)]
+    note = ("mix " + (spec_text + ": " if spec_text else "") + "got "
+            + ", ".join(parts) + "; labels "
+            + ", ".join(f"{v} {k}" for k, v in sorted(labels.items())))
+    if short > 0:
+        note += (f" - {short} slot(s) refilled with the best that was left: this"
+                 " pool cannot fill every tier asked for")
+    return picked, tier_ids, note
+
+
+def pool_facts(problems):
+    """What a sample can be drawn from: rows, distinct questions, the dataset's
+    own labels, the date range and the weight range. This is the tool's answer
+    to "why did that scenario come out 100%": a pool of 479 tiny 2023 snippets
+    has no hard to give."""
+    if not problems:
+        return {"n": 0}
+    labels = {}
+    for p in problems:
+        k = str(p["difficulty"]).lower()
+        labels[k] = labels.get(k, 0) + 1
+    dates = [p["contest_date"] for p in problems]
+    bases = {str(p["question_id"]).split("#")[0] for p in problems}
+    ws = sorted(problem_weight(p) for p in problems)
+    biggest = max(problems, key=problem_weight)
+    return {
+        "n": len(problems),
+        "questions": len(bases),
+        "labels": labels,
+        "date_min": min(dates).strftime("%Y-%m-%d"),
+        "date_max": max(dates).strftime("%Y-%m-%d"),
+        "weight_min": ws[0], "weight_median": ws[len(ws) // 2], "weight_max": ws[-1],
+        "biggest": str(biggest["question_id"]),
+    }
 
 
 def stratified_pick(pool, count, seed=1234, equal_tiers=False):
@@ -333,11 +479,213 @@ def _write_tier(path, ids):
         json.dump(sorted(ids), f)
 
 
+def show_pool_info(args, scen):
+    """--pool-info: what a scenario can actually be sampled from, with no model
+    involved. This is the answer to "why did that come out 100%": a pool that
+    holds no hard problems cannot hand out a hard sample."""
+    label = {"codegen": DATASET_NAME, "exec": EXEC_DATASET_NAME,
+             "top": TOP_DATASET_NAME}[scen]
+    print(f"Pool for scenario {args.scenario} ({label}), release {args.release}:")
+    if scen == "codegen":
+        problems = load_problems(args.release, args.start_date, args.end_date,
+                                 args.difficulty, 0)
+    elif scen == "exec":
+        problems = load_exec_problems(args.release, args.start_date, args.end_date,
+                                      args.difficulty, 0, cot=args.exec_cot,
+                                      bundle=args.bundle)
+    else:
+        problems = load_top_problems(args.release, args.start_date, args.end_date,
+                                     args.difficulty, 0, bundle=args.bundle)
+    facts = POOL_FACTS
+    if not facts or not facts.get("n"):
+        print("   nothing is left after the filters - no sample can be drawn at all")
+        return
+    labels = facts["labels"]
+    print(f"   {facts['n']} problems from {facts['questions']} distinct questions"
+          + ("" if facts["questions"] == facts["n"] else
+             f"  ({facts['n'] / facts['questions']:.1f} rows per question:"
+             " every row is ONE call, not the whole problem)"))
+    print("   labels: " + ", ".join(f"{v} {k}" for k, v in sorted(labels.items())))
+    hard_n = labels.get("hard", 0)
+    print(f"   dates: {facts['date_min']} .. {facts['date_max']}"
+          f"  -> {hard_n / facts['n'] * 100:.1f}% of the pool is labelled hard")
+    print(f"   weight: median {facts['weight_median']}, biggest {facts['weight_max']}"
+          f" (id {facts['biggest']}) - weight = test cases for code generation,"
+          " characters of code / problem text for the fast scenarios")
+    print("   what --mix can fill: hardest takes from all"
+          f" {facts['n']}, then {hard_n} hard,"
+          f" {labels.get('medium', 0)} medium, {labels.get('easy', 0)} easy - a"
+          " share bigger than that gets refilled from the other labels")
+    if args.random_sample:
+        spec_text = args.mix or "50/25/15/10"
+        spec = parse_mix(spec_text)
+        got, _, note = mix_pick(problems, args.random_sample, spec, spec_text)
+        print(f"   --random-sample {args.random_sample} --mix {spec_text} here:"
+              f" {note}")
+    if scen != "codegen":
+        caps = facts.get("bundle_cap") or {}
+        print("   what --bundle can do (K calls answered in ONE answer, all K"
+              " right or the item fails - the only lever that bites on a pool"
+              " this flat):")
+        for k in sorted(caps, key=int):
+            if caps[k] >= 10:
+                print(f"      K={k}: {caps[k]} items  (up to {int(k) * caps[k]}"
+                      " single calls in play)")
+        if not any(v >= 10 for v in caps.values()):
+            print("      no K holds even 10 items - this pool cannot bundle")
+        bk = facts.get("bundle_k")
+        if bk:
+            print(f"   (running now: --bundle {bk}, every item = {bk} calls,"
+                  " all-or-nothing)")
+        print("   verdict: every problem in this scenario is one call to one small"
+              " function with a short answer. It is a ceiling check - can the model"
+              " run code in its head and answer in the asked format - not a"
+              " discrimination test. --bundle K restores the slope by making the"
+              " ANSWER unit heavier (a K-item passes at per-call-rate**K), but the"
+              " ranking stays on code_generation: pin the difficulty there with"
+              " --hardest / --mix plus --start-date (the newest contests are the"
+              " least memorised ones).")
+
+
+def _harden_ladder(scen, per_call, target, caps, cur_k=1, n_rows=0):
+    """The harden ratchet: given the per-call pass rate just measured, which
+    --bundle size would push the item score under `target` (p**k <= target), and
+    does the pool actually hold that many items? Returns (suggestion_text_lines,
+    None) or (None, why_no_more_text) - the tool never lets a saturated fast
+    run end without printing the next command that has a chance at being hard."""
+    if not caps:
+        return None, ("this pool cannot bundle at all (nothing groups into"
+                      " repeated calls) - rank on code_generation instead")
+    scen_flag = "code_execution" if scen == "exec" else "test_output_prediction"
+    lines = []
+    k_order = sorted(int(k) for k, v in caps.items() if v >= 10)
+    if cur_k:
+        k_order = [k for k in k_order if k > cur_k]
+    if per_call >= 0.99999:
+        top_cov = max(k_order, key=lambda k: caps[str(k)] * k) if k_order else None
+        if top_cov is None:
+            return None, ("no bundle size of this pool holds >= 10 items"
+                          " - rank on code_generation instead")
+        cov = caps[str(top_cov)] * top_cov
+        lines.append(
+            f"every single call was right ({int(per_call * 100)}%): no"
+            " difficulty mix can lower a number that has no misses yet - the"
+            " answer unit has to carry more calls so any hidden miss fails a"
+            f" whole item. The widest net this pool holds: --bundle {top_cov}"
+            f" --random-sample {min(100, caps[str(top_cov)])} covers"
+            f" {cov}/{n_rows} of every call in the release.")
+        lines.append(
+            f"  python lcb_bench.py --scenario {scen_flag} --bundle {top_cov}"
+            f" --random-sample {min(100, caps[str(top_cov)])} --workers 1"
+            " --max-tokens 16384 --eval-workers 8")
+        return lines, None
+    for k in k_order:
+        if per_call ** k <= target:
+            n_samp = min(100, caps[str(k)])
+            lines.append(
+                f"per-call rate {per_call * 100:.1f}% -> a K-call item passes at"
+                f" about {per_call * 100:.1f}%**K, so K={k} lands near"
+                f" {per_call ** k * 100:.0f}% (target {target * 100:.0f}%):"
+                f" --bundle {k}, and the pool holds {caps[str(k)]} items of"
+                f" {k} calls.")
+            lines.append(
+                f"  python lcb_bench.py --scenario {scen_flag} --bundle {k}"
+                f" --random-sample {n_samp} --workers 1 --max-tokens 16384"
+                " --eval-workers 8")
+            return lines, None
+    kmax = max(k_order) if k_order else None
+    if kmax:
+        lines.append(
+            f"even K={kmax} items are expected at {per_call ** kmax * 100:.0f}% >"
+            f" {target * 100:.0f}%: this pool is saturated for this model down"
+            " to its last bundle - the number that ranks it is"
+            " code_generation with --mix plus --start-date.")
+        return lines, None
+    return None, ("no bundle size of this pool holds >= 10 items"
+                  " - rank on code_generation instead")
+
+
+def saturation_note(scen, score, n_problems, per_diff, hardest_m,
+                    bundle_m=None, harden_target=None):
+    """Printed under a score of 99% or more (90% on the fast scenarios, which
+    saturate that low): what that score was measured against, the exact next
+    command that has a chance of being harder for THIS model (the harden
+    ratchet), and the pool facts behind both. The fast scenarios get the
+    uncomfortable version - their whole release is old one-call snippets, so
+    no sample drawn from it can be hard; only a bigger answer unit can."""
+    facts = POOL_FACTS or {}
+    labels = facts.get("labels") or {}
+    target = ((harden_target if harden_target is not None
+               else (90.0 if scen != "codegen" else 99.0)) / 100.0)
+    pool_line = None
+    if facts.get("n"):
+        if facts.get("bundle_k"):
+            lead = (f"{facts.get('raw_rows', '?')} rows from"
+                    f" {facts.get('raw_questions', '?')} distinct questions,"
+                    f" bundled {facts['bundle_k']} calls to an item ->"
+                    f" {facts['n']} items")
+        else:
+            lead = (f"{facts['n']} rows from {facts['questions']}"
+                    " distinct questions")
+        pool_line = (f"      the pool it came from: {lead},"
+                     f" {facts['date_min']} to {facts['date_max']},"
+                     " labelled " + ", ".join(f"{v} {k}"
+                                              for k, v in sorted(labels.items()))
+                     + f"; biggest single row {facts['weight_max']}"
+                     f" (median {facts['weight_median']})")
+    hard_n = len(per_diff.get("hard", []))
+    lines = []
+    if scen == "codegen":
+        if hard_n == n_problems:
+            lines.append(f"      {score:g}% with all {n_problems} problems flagged hard:"
+                         " memorised problems, not easy ones. Take the newest"
+                         " contests: --start-date 2025-01-01 --hardest N")
+        else:
+            lines.append(f"      {score:g}% on {n_problems} problems where only {hard_n}"
+                         " were hard: the sample cannot tell models apart. Pin the"
+                         " difficulty: --random-sample 100 --hardest 25, or --mix"
+                         " 50/25/15/10, plus --start-date 2025-01-01")
+        if pool_line:
+            lines.append(pool_line)
+    else:
+        unit = (f" rows of {bundle_m['k']} calls" if bundle_m else " rows")
+        lines.append(f"      {score:g}% on {n_problems}{unit} of the {scen} scenario:"
+                     " read this as a ceiling check, not as a score. Every row here is"
+                     " one or a few calls to small functions with short answers"
+                     " printed back, and the whole release is old, so resampling it"
+                     " cannot make it harder - we checked.")
+        if pool_line:
+            lines.append(pool_line)
+        pc = (bundle_m["per_call_pass"] if bundle_m else score / 100.0)
+        ladder, dead_end = _harden_ladder(
+            scen, pc, target, facts.get("bundle_cap") or {},
+            cur_k=(bundle_m["k"] if bundle_m else 1),
+            n_rows=facts.get("raw_rows") or facts.get("n", 0))
+        if ladder:
+            lines.append("      harden it further (same rows, same grader - only the"
+                         " answer unit gets heavier):")
+            lines += [f"      {ln}" if ln.startswith("python") else f"      {ln}"
+                      for ln in ladder]
+        elif dead_end:
+            lines.append(f"      {dead_end}")
+        lines.append("      to rank models run code_generation instead:"
+                     " --scenario code_generation --random-sample 100 --mix"
+                     " 50/25/15/10 --start-date 2025-01-01 (or --hardest 50)."
+                     " --pool-info prints the same facts about any pool with no run")
+    if hardest_m.get("n") and hardest_m.get("pass@1") is not None \
+            and hardest_m["pass@1"] >= 0.9:
+        lines.append(f"      even the hardest tier ({hardest_m['n']} problems) came"
+                     f" out at {hardest_m['pass@1'] * 100:.0f}% - the pool had no"
+                     " headroom left for this model within these filters")
+    return "\n".join(lines)
+
+
 def filter_sample(problems, start_date, end_date, difficulty, limit,
-                  random_sample=0, sample_ids_file=None, hardest=0):
-    global SAMPLE_NOTE, HARDEST_IDS
+                  random_sample=0, sample_ids_file=None, hardest=0, mix=None):
+    global SAMPLE_NOTE, HARDEST_IDS, POOL_FACTS
     SAMPLE_NOTE = ""
     HARDEST_IDS = set()
+    POOL_FACTS = {}
     tier_file = (os.path.join(os.path.dirname(sample_ids_file) or ".",
                               "hardest_ids.json") if sample_ids_file else None)
     problems.sort(key=lambda p: str(p["question_id"]))
@@ -354,6 +702,10 @@ def filter_sample(problems, start_date, end_date, difficulty, limit,
     if limit:
         problems = problems[:limit]
     pool = problems
+    POOL_FACTS = pool_facts(pool)
+    # how many K-call bundle items this pool could supply (0 for pools where
+    # nothing groups, e.g. code_generation): read by --pool-info and the ratchet
+    POOL_FACTS["bundle_cap"] = bundle_capacity(pool)
     reused_sample = False
     if random_sample:
         if sample_ids_file and os.path.exists(sample_ids_file):
@@ -362,6 +714,12 @@ def filter_sample(problems, start_date, end_date, difficulty, limit,
             with open(sample_ids_file, encoding="utf-8") as f:
                 keep = {str(x) for x in json.load(f)}
             problems = [p for p in problems if str(p["question_id"]) in keep]
+            if not problems and keep:
+                sys.exit("The saved sample list of this run holds ids that are"
+                         " not in this pool - a --bundle run scores items, not"
+                         " rows, so its sample is a different universe. Give the"
+                         " bundled run its own --name (or delete sample_ids.json"
+                         " in the run folder to pick fresh).")
         elif len(problems) > random_sample:
             picked = stratified_pick(problems, random_sample)
             picked.sort(key=lambda p: str(p["question_id"]))
@@ -370,18 +728,40 @@ def filter_sample(problems, start_date, end_date, difficulty, limit,
                 os.makedirs(os.path.dirname(sample_ids_file) or ".", exist_ok=True)
                 with open(sample_ids_file, "w", encoding="utf-8") as f:
                     json.dump(sorted(str(p["question_id"]) for p in picked), f)
-    if hardest and reused_sample:
+    if (hardest or mix) and reused_sample:
         if tier_file and os.path.exists(tier_file):
             with open(tier_file, encoding="utf-8") as f:
                 HARDEST_IDS = {str(x) for x in json.load(f)}
-            print(f"--hardest {hardest}: this run already has its saved sample"
-                  f" list, so it is reused exactly as it was picked"
+            print(f"--hardest/--mix: this run already has its saved sample list,"
+                  f" so it is reused exactly as it was picked"
                   f" ({len(HARDEST_IDS)} of them are the hardest tier)")
         else:
-            print(f"--hardest {hardest}: this run already has its saved sample list"
+            print(f"--hardest/--mix: this run already has its saved sample list"
                   " (the hardest problems are inside it), so it is reused exactly as"
                   " it was picked")
-        hardest = 0
+        hardest, mix = 0, None
+    if mix:
+        if limit:
+            print("--mix: ignored together with --limit (the limit already says"
+                  " which problems, mix has no room to pick any)")
+        elif not random_sample:
+            print("--mix: needs --random-sample N - it is a share *of a sample*,"
+                  " so with no sample there is nothing to fill. Ignored.")
+        elif len(pool) <= random_sample:
+            print(f"--mix: the filter holds {len(pool)} problems, not more than the"
+                  " sample size, so mix has nowhere to pick")
+        else:
+            chosen, tier_ids, note = mix_pick(pool, random_sample, mix,
+                                              str(MIX_SPEC or mix))
+            problems = sorted(chosen, key=lambda p: str(p["question_id"]))
+            HARDEST_IDS = tier_ids
+            SAMPLE_NOTE = note
+            print(f"Sample: {note}")
+            hardest = 0
+            if sample_ids_file:
+                _write_sample_ids(sample_ids_file, problems)
+                if tier_ids:
+                    _write_tier(tier_file, tier_ids)
     if hardest:
         if limit:
             print(f"--hardest {hardest}: ignored together with --limit (the limit"
@@ -543,9 +923,279 @@ def format_prompt_top(question_content, starter_code, function_name, testcase_in
             {"role": "user", "content": prompt}]
 
 
+# ---- --bundle K: the fast scenarios answered K calls per prompt, all or
+# nothing. One call to one small function is a ceiling check for a strong model
+# (the whole exec release came out 100% - see EXTRA_MINIMAL_BENCHMARK.md); K
+# calls answered in ONE go, every one right or the item fails, turn that ceiling
+# into a slope again: an item passes at roughly p**K when a single call passes
+# at p. Same rows, same grader, same prompts - only the answer unit changes.
+
+EXEC_BUNDLE_HEAD = (
+    "You are given several short Python programs and, under each one, an "
+    "assertion containing an input to that program. Complete EVERY assertion "
+    "with a literal (no unsimplified expressions, no function calls) "
+    "containing the output when executing that program on that input, even if "
+    "a program is incorrect or incomplete. Do NOT output any extra "
+    "information. Give one completed assertion per program, in the same order "
+    "the programs appear, one per line, inside one pair of [ANSWER] and "
+    "[/ANSWER] tags, following the examples."
+)
+
+EXEC_BUNDLE_HEAD_COT = (
+    "You are given several short Python programs and, under each one, an "
+    "assertion containing an input to that program. Complete EVERY assertion "
+    "with a literal (no unsimplified expressions, no function calls) "
+    "containing the output when executing that program on that input, even if "
+    "a program is incorrect or incomplete. Do NOT output any extra "
+    "information. Execute each program step by step before arriving at its "
+    "answer, and give one completed assertion per program, in the same order "
+    "the programs appear, one per line, inside one pair of [ANSWER] and "
+    "[/ANSWER] tags, following the examples."
+)
+
+EXEC_BUNDLE_EXAMPLES = """[PYTHON]
+def repeatNumber(number : int) -> int:
+    return number
+assert repeatNumber(number = 17) == ??
+[/PYTHON]
+[PYTHON]
+def addCharacterA(string : str) -> str:
+    return string + "a"
+assert addCharacterA(string = "x9j") == ??
+[/PYTHON]
+[ANSWER]
+assert repeatNumber(number = 17) == 17
+assert addCharacterA(string = "x9j") == "x9ja"
+[/ANSWER]"""
+
+
+def format_prompt_exec_bundle(items, cot=False):
+    """items: list of {"code", "input"} dicts, same order as the answers."""
+    blocks = "".join(
+        f"[PYTHON]\n{it['code']}\nassert {it['input']} == ??\n[/PYTHON]\n"
+        for it in items)
+    tmpl = (f"{EXEC_BUNDLE_HEAD_COT if cot else EXEC_BUNDLE_HEAD}\n\n"
+            + EXEC_BUNDLE_EXAMPLES + "\n\n" + blocks
+            + ("[THOUGHT]\n" if cot else "[ANSWER]\n"))
+    return [{"role": "system", "content": EXEC_SYSTEM_MESSAGE},
+            {"role": "user", "content": tmpl}]
+
+
+def format_prompt_top_bundle(question_content, starter_code, function_name,
+                             testcase_inputs):
+    func_name = parse_function_name_from_starter_code(starter_code) or function_name
+    prompt = f"Problem:\n{question_content}"
+    prompt += f"Function:\n```\n{starter_code}\n```\n"
+    prompt += ("Please complete ALL of the following test cases: one finished"
+               " assert statement per line, in the order given, inside one"
+               " python code block.\n\n```\n")
+    for t in testcase_inputs:
+        prompt += format_testcase_func_name_input(func_name, t) + "\n"
+    prompt += "```\n"
+    return [{"role": "system", "content": TOP_SYSTEM_MESSAGE},
+            {"role": "user", "content": prompt}]
+
+
+def _norm_nospace(s):
+    return "".join(str(s).split())
+
+
+def _exec_rhs(line):
+    """Right-hand side of one answer assertion line, like extract_exec_answer
+    does for a single-call answer."""
+    if "==" not in line:
+        return ""
+    return extract_exec_answer(line, cot=False)
+
+
+def extract_exec_bundle_answers(model_output, inputs, cot=False):
+    """One answer string -> K per-call answers (missing ones as "").
+
+    Matching is by the call text first (the line holding `assert f(5)` is the
+    answer for the `f(5)` input), then by position among the leftovers, so a
+    model that answers in order but without repeating the call text still
+    gets counted. The grader stays strict: an answer that is not exactly the
+    evaluated output fails."""
+    text = model_output or ""
+    block = ""
+    if "[ANSWER]" in text:
+        block = text.rsplit("[ANSWER]", 1)[-1]
+        if "[/ANSWER]" in block:
+            block = block.split("[/ANSWER]")[0]
+    lines_src = block if any("==" in ln for ln in block.splitlines()) else text
+    lines = [ln.strip() for ln in lines_src.splitlines() if ln.strip()]
+    if not any("==" in ln for ln in lines):
+        lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+    def unanswered(ln):
+        rhs = ln.split("==")[-1].strip()
+        return (not rhs or not rhs.rstrip(".?") or
+                (rhs.startswith("?") and set(rhs) <= set("?. ")))
+
+    used, out = set(), []
+    for inp in inputs:
+        key = _norm_nospace(inp)
+        pick = None
+        if key:
+            for j, ln in enumerate(lines):
+                if j in used or "==" not in ln or unanswered(ln):
+                    continue
+                if key in _norm_nospace(ln):
+                    pick = j
+                    break
+        if pick is None:
+            for j, ln in enumerate(lines):
+                if j in used or "==" not in ln or unanswered(ln):
+                    continue
+                pick = j
+                break
+        if pick is not None:
+            used.add(pick)
+        out.append(_exec_rhs(lines[pick]) if pick is not None else "")
+    return out
+
+
+def extract_top_bundle_answers(model_output, call_strs):
+    """One answer string -> K per-test assert lines (missing ones as "").
+    Line i answers call i: matched by the call text when present, else taken
+    in order among the leftover assert lines."""
+    text = model_output or ""
+    lines = [ln.strip() for ln in text.splitlines()
+             if ln.strip().startswith("assert")]
+    if len(lines) < len(call_strs):
+        fenced = extract_top_answer(text)
+        if fenced:
+            more = [ln.strip() for ln in fenced.splitlines() if ln.strip()]
+            if len(more) > len(lines):
+                lines = more
+    used, out = set(), []
+    for cs in call_strs:
+        key = _norm_nospace(cs)
+        pick = None
+        if key:
+            for j, ln in enumerate(lines):
+                if j in used:
+                    continue
+                if key in _norm_nospace(ln):
+                    pick = j
+                    break
+        if pick is None:
+            for j, ln in enumerate(lines):
+                if j not in used:
+                    pick = j
+                    break
+        if pick is not None:
+            used.add(pick)
+            out.append(lines[pick])
+        else:
+            out.append("")
+    return out
+
+
+def _bundle_chunks(rows, k):
+    """Chunk rows (already sorted, grouped by base question id) into consecutive
+    full groups of k; a leftover of 1..k-1 rows at the end of a question is
+    dropped, so every item is exactly k calls wide. Deterministic."""
+    from itertools import groupby as _groupby
+
+    def base_of(p):
+        return str(p["question_id"]).split("#")[0]
+
+    chunks = []
+    for base, grp in _groupby(sorted(rows, key=lambda p: (
+            str(p["question_id"]).split("#")[0], str(p["question_id"]))), key=base_of):
+        grp = list(grp)
+        n_full = len(grp) // k
+        for ci in range(n_full):
+            chunks.append((base, ci, grp[ci * k:(ci + 1) * k]))
+    return chunks
+
+
+def bundle_capacity(problems):
+    """How many K-call bundle items this pool could supply, per K. This is what
+    --pool-info prints and what the harden ratchet reads: --bundle K on a pool
+    that holds no K groups cannot be run, and saying so before the GPU warms up
+    beats an empty sample."""
+    from collections import Counter
+
+    caps = {}
+    for k in range(2, 7):
+        by_base = {}
+        for p in problems:
+            b = str(p["question_id"]).split("#")[0]
+            by_base[b] = by_base.get(b, 0) + 1
+        caps[str(k)] = sum(n // k for n in by_base.values())
+    return caps
+
+
+def bundle_exec_problems(rows, k):
+    """K exec rows -> one all-or-nothing item. execution-v2 gives every row its
+    own little program, so a bundle is simply K of those programs answered in
+    one go (the same contest problem's rows stay together; their calls differ).
+    The item passes only if all K answers are right."""
+    out = []
+    for base, ci, grp in _bundle_chunks(rows, k):
+        items = []
+        for p in grp:
+            d = json.loads(p["eval_payload"])
+            items.append({"code": d["code"], "input": d["input"],
+                          "output": d["output"]})
+        first = grp[0]
+        out.append({
+            "question_id": f"{base}#b{k}c{ci}",
+            "difficulty": first["difficulty"],
+            "contest_date": first["contest_date"],
+            "kind": "exec",
+            "bundle": k,
+            "inputs": [it["input"] for it in items],
+            "eval_payload": json.dumps({"items": items}, ensure_ascii=False),
+            "weight": sum(int(p.get("weight") or 0) for p in grp),
+            "messages": format_prompt_exec_bundle(items, cot=False),
+        })
+    return out
+
+
+def bundle_exec_cot(rows, k, problems_bundle):
+    """Rebuild the bundle prompts for --exec-cot (the loader built direct
+    prompts; the cot text only differs in the instruction template)."""
+    for p in problems_bundle:
+        items = json.loads(p["eval_payload"])["items"]
+        p["messages"] = format_prompt_exec_bundle(items, cot=True)
+    return problems_bundle
+
+
+def bundle_top_problems(rows, k):
+    """K tests of the SAME problem -> one all-or-nothing item: the model reads
+    the problem once and must predict the output of K different inputs, every
+    one right or the item fails."""
+    out = []
+    for base, ci, grp in _bundle_chunks(rows, k):
+        first = grp[0]
+        items, calls = [], []
+        fn = parse_function_name_from_starter_code(first.get("starter") or "") \
+            or first.get("fname")
+        for p in grp:
+            d = json.loads(p["eval_payload"])
+            items.append({"expected": d["expected"]})
+            calls.append(f"{fn}({', '.join(str(p['test_input']).splitlines())})")
+        out.append({
+            "question_id": f"{base}#tb{k}c{ci}",
+            "difficulty": first["difficulty"],
+            "contest_date": first["contest_date"],
+            "kind": "top",
+            "bundle": k,
+            "calls": calls,
+            "eval_payload": json.dumps({"items": items}, ensure_ascii=False),
+            "weight": sum(int(p.get("weight") or 0) for p in grp),
+            "messages": format_prompt_top_bundle(
+                first["q_content"], first["starter"], first["fname"],
+                [p["test_input"] for p in grp]),
+        })
+    return out
+
+
 def load_exec_problems(release, start_date, end_date, difficulty, limit,
                        random_sample=0, sample_ids_file=None, cot=False,
-                       hardest=0):
+                       hardest=0, mix=None, bundle=1):
     from datasets import load_dataset
 
     ds = load_dataset(EXEC_DATASET_NAME, split="test", trust_remote_code=True)
@@ -571,17 +1221,41 @@ def load_exec_problems(release, start_date, end_date, difficulty, limit,
                      "output": row["output"]},
                     ensure_ascii=False,
                 ),
+                # weight: how much code one call carries. exec rows are all
+                # single calls, so this is the only size signal the row has.
+                "weight": (len(row["code"] or "")
+                           + len(str(row["output"] or ""))),
                 "messages": format_prompt_exec(row["code"], row["input"], cot),
             }
         )
+    if bundle and bundle > 1:
+        caps = bundle_capacity(problems)
+        raw_n = len(problems)
+        raw_q = len({str(p["question_id"]).split("#")[0] for p in problems})
+        if cot:
+            packed = bundle_exec_problems(problems, bundle)
+            problems = bundle_exec_cot(problems, bundle, packed)
+        else:
+            problems = bundle_exec_problems(problems, bundle)
+        problems.sort(key=lambda p: str(p["question_id"]))
+        out = filter_sample(
+            problems, start_date, end_date, difficulty, limit,
+            random_sample, sample_ids_file, hardest=hardest, mix=mix,
+        )
+        POOL_FACTS["bundle_cap"] = caps
+        POOL_FACTS["bundle_k"] = bundle
+        POOL_FACTS["raw_rows"] = raw_n
+        POOL_FACTS["raw_questions"] = raw_q
+        return out
     return filter_sample(
         problems, start_date, end_date, difficulty, limit,
-        random_sample, sample_ids_file, hardest=hardest,
+        random_sample, sample_ids_file, hardest=hardest, mix=mix,
     )
 
 
 def load_top_problems(release, start_date, end_date, difficulty, limit,
-                      random_sample=0, sample_ids_file=None, hardest=0):
+                      random_sample=0, sample_ids_file=None, hardest=0, mix=None,
+                      bundle=1):
     from datasets import load_dataset
 
     ds = load_dataset(TOP_DATASET_NAME, split="test", trust_remote_code=True)
@@ -599,15 +1273,41 @@ def load_top_problems(release, start_date, end_date, difficulty, limit,
                 "contest_date": contest_date,
                 "kind": "top",
                 "eval_payload": json.dumps({"expected": test["output"]}),
+                # weight: how much problem text the one predicted output has to
+                # come out of.
+                "weight": (len(row["question_content"] or "")
+                           + len(row["starter_code"] or "")
+                           + len(str(test["output"] or ""))),
                 "messages": format_prompt_top(
                     row["question_content"], row["starter_code"],
                     row["function_name"], test["input"]
                 ),
+                # kept for --bundle: rebuild a multi-test prompt of the same
+                # problem from these
+                "q_content": row["question_content"],
+                "starter": row["starter_code"],
+                "fname": row["function_name"],
+                "test_input": test["input"],
             }
         )
+    if bundle and bundle > 1:
+        caps = bundle_capacity(problems)
+        raw_n = len(problems)
+        raw_q = len({str(p["question_id"]).split("#")[0] for p in problems})
+        problems = bundle_top_problems(problems, bundle)
+        problems.sort(key=lambda p: str(p["question_id"]))
+        out = filter_sample(
+            problems, start_date, end_date, difficulty, limit,
+            random_sample, sample_ids_file, hardest=hardest, mix=mix,
+        )
+        POOL_FACTS["bundle_cap"] = caps
+        POOL_FACTS["bundle_k"] = bundle
+        POOL_FACTS["raw_rows"] = raw_n
+        POOL_FACTS["raw_questions"] = raw_q
+        return out
     return filter_sample(
         problems, start_date, end_date, difficulty, limit,
-        random_sample, sample_ids_file, hardest=hardest,
+        random_sample, sample_ids_file, hardest=hardest, mix=mix,
     )
 
 
@@ -1122,6 +1822,10 @@ def eval_one_problem(job):
         return eval_exec_problem(qid, in_out_str, codes, timeout)
     if scenario == "top":
         return eval_top_problem(qid, in_out_str, codes)
+    if scenario == "execb":
+        return eval_exec_bundle_problem(qid, in_out_str, codes, timeout)
+    if scenario == "topb":
+        return eval_top_bundle_problem(qid, in_out_str, codes)
     in_outs = json.loads(in_out_str)
     results, metas = [], []
     for code in codes:
@@ -1289,6 +1993,51 @@ def eval_top_problem(qid, payload_str, preds):
     expected = json.loads(payload_str)["expected"]
     results = [[bool(_check_top(p, expected))] for p in preds]
     return {"qid": qid, "kind": "top", "results": results, "meta": [{}, ] * len(preds)}
+
+
+# ---- --bundle scoring: K sub-answers per generation, the item counts as
+# passed only when every sub-answer is right (all or nothing). The sub-results
+# ride along in "sub" so the score line can print the per-call rate too:
+# bundle pass ~= p**K is the headroom the fast pools lost.
+
+def eval_exec_bundle_problem(qid, payload_str, answers, timeout):
+    items = json.loads(payload_str)["items"]
+    results, skipped, metas, subs = [], [], [], []
+    for answer in answers:
+        ans = list(answer) if isinstance(answer, (list, tuple)) else [answer]
+        ans = ans + [""] * (len(items) - len(ans))
+        if any(it["input"] and it["input"] in a for it, a in zip(items, ans)):
+            # official quirk, bundle-wide: one echoing answer skips the sample
+            results.append([False])
+            skipped.append(True)
+            metas.append({"skipped": "input echoed in answer"})
+            subs.append([False] * len(items))
+            continue
+        sub = []
+        for it, a in zip(items, ans):
+            ok, meta = _eval_exec_sample(it["input"], it["code"], it["output"],
+                                         a, timeout)
+            sub.append(bool(ok))
+        results.append([all(sub)])
+        skipped.append(False)
+        metas.append({"sub": sub})
+        subs.append(sub)
+    return {"qid": qid, "kind": "execb", "results": results,
+            "skipped": skipped, "meta": metas, "sub": subs}
+
+
+def eval_top_bundle_problem(qid, payload_str, preds):
+    items = json.loads(payload_str)["items"]
+    results, metas, subs = [], [], []
+    for pred in preds:
+        pr = list(pred) if isinstance(pred, (list, tuple)) else [pred]
+        pr = pr + [""] * (len(items) - len(pr))
+        sub = [bool(_check_top(a, it["expected"])) for a, it in zip(pr, items)]
+        results.append([all(sub)])
+        metas.append({"sub": sub})
+        subs.append(sub)
+    return {"qid": qid, "kind": "topb", "results": results, "meta": metas,
+            "sub": subs}
 
 
 # -----------------------------------------------------------------------------
@@ -1723,13 +2472,47 @@ def main():
                          "so every model is scored on the identical problems)")
     ap.add_argument("--hardest", type=int, default=0, metavar="N",
                     help="Take N of the sample's slots for the hardest problems in"
-                         " the release (hard first, then the most test cases, then"
-                         " the newest contest) and spread the rest evenly over"
+                         " the release (hard label first, then the newest contest,"
+                         " then the most test cases) and spread the rest evenly over"
                          " easy / medium / hard, so one command covers every"
                          " difficulty in one total: --random-sample 100 --hardest"
                          " 25 is 25 hardest + 25 easy + 25 medium + 25 hard. On its"
                          " own the run IS those N hardest problems. A small"
                          " easy-weighted sample lets a good model print 100%%.")
+    ap.add_argument("--mix", default=None, metavar="A/B/C/D",
+                    help="Fill --random-sample N by tier shares instead of one"
+                         " hardest tier: --mix 50/25/15/10 is 50%% hardest, 25%%"
+                         " hard, 15%% medium, 10%% easy of those N problems"
+                         " (named form works too: --mix hardest=50,hard=25,"
+                         "medium=15,easy=10). hardest is this bench's own ranking"
+                         " (label, then newest, then biggest) because a dataset's"
+                         " own hard label is often nearly empty - if a tier cannot"
+                         " be filled the run says so and takes the best that is"
+                         " left. Takes the place of --hardest; one or the other.")
+    ap.add_argument("--pool-info", action="store_true",
+                    help="Answer 'why did this scenario come out 100%%' without"
+                         " waking the model: load the scenario's problem pool and"
+                         " print how many problems it really holds, how many are"
+                         " labelled hard, how old they are, what a --mix could"
+                         " ever fill from it and what --bundle sizes it could"
+                         " supply. No generation, no server.")
+    ap.add_argument("--bundle", type=int, default=1, metavar="K",
+                    help="Fast scenarios only: every scored item is K single"
+                         " calls asked in ONE answer and graded all-or-nothing"
+                         " (all K right or the item fails). A model that gets"
+                         " p of the single calls right lands near p**K per"
+                         " item, which is where a saturated pool (the whole"
+                         " exec release came out 100%%) gets its headroom"
+                         " back. --random-sample counts ITEMS then, not rows."
+                         " --pool-info prints how many items each K can supply.")
+    ap.add_argument("--harden-target", type=float, default=None, metavar="PCT",
+                    help="Aim for a score under PCT%%: a run that lands at or"
+                         " over it prints the exact next command that could"
+                         " push this model under it (bigger --bundle on the"
+                         " fast scenarios, later --start-date / heavier --mix"
+                         " on code_generation). Default target: 90 fast, 99"
+                         " long - the point is that no run just prints a"
+                         " smiling 100%%.")
     ap.add_argument("--both", action="store_true",
                     help="One command, both rows: run the whole scenario twice on the"
                          " same problems - pass 1 with the harness question answered no"
@@ -1794,7 +2577,7 @@ def main():
                          "in its _summary.json and rebuild the report (no server, "
                          "no regeneration)")
     args = ap.parse_args()
-    global _API_KEY
+    global _API_KEY, MIX_SPEC
     _API_KEY = args.api_key or os.environ.get("LCB_API_KEY")
 
     scen = {"code_generation": "codegen", "codegen": "codegen",
@@ -1809,9 +2592,34 @@ def main():
     if args.harness_note and args.harness != "yes" and args.set_harness != "yes" \
             and not args.both:
         ap.error("--harness-note needs --harness yes (it says which harness it was)")
+    if args.mix and args.hardest:
+        ap.error("--mix and --hardest both decide how the sample gets its hard"
+                 " problems; use one or the other")
+    if args.bundle != 1:
+        if args.bundle < 2:
+            ap.error("--bundle takes K >= 2 (1 is no bundling at all)")
+        if scen == "codegen":
+            ap.error("--bundle is for the fast scenarios (code_execution /"
+                     " test_output_prediction): one code_generation problem is"
+                     " already a whole program - the knobs there are --mix /"
+                     " --hardest / --start-date")
+    if args.harden_target is not None and not (0 < args.harden_target <= 100):
+        ap.error("--harden-target is a percentage between 0 and 100")
+    if args.mix:
+        if not args.random_sample:
+            ap.error("--mix is a share *of a sample*: give it --random-sample N too")
+        try:
+            args.mix_parsed = parse_mix(args.mix)
+        except ValueError as e:
+            ap.error(str(e))
+        MIX_SPEC = args.mix
 
     if args.self_test:
         sys.exit(self_test())
+
+    if args.pool_info:
+        show_pool_info(args, scen)
+        return
 
     os.makedirs("bench", exist_ok=True)
     if args.report_only:
@@ -2016,21 +2824,32 @@ def run_one(args, scen, base, model_id, harness_val, harness_note,
         return
 
     sample_file = os.path.join(run_dir, "sample_ids.json")
+    mix = getattr(args, "mix_parsed", None)
+    bundle = int(getattr(args, "bundle", 1) or 1)
     if scen == "codegen":
         problems = load_problems(args.release, args.start_date, args.end_date,
                                  args.difficulty, args.limit,
                                  args.random_sample, sample_file,
-                                 hardest=args.hardest)
+                                 hardest=args.hardest, mix=mix)
     elif scen == "exec":
         problems = load_exec_problems(args.release, args.start_date, args.end_date,
                                       args.difficulty, args.limit,
                                       args.random_sample, sample_file,
-                                      cot=args.exec_cot, hardest=args.hardest)
+                                      cot=args.exec_cot, hardest=args.hardest,
+                                      mix=mix, bundle=bundle)
     else:
         problems = load_top_problems(args.release, args.start_date, args.end_date,
                                      args.difficulty, args.limit,
                                      args.random_sample, sample_file,
-                                     hardest=args.hardest)
+                                     hardest=args.hardest, mix=mix, bundle=bundle)
+    if bundle > 1 and problems and not problems[0].get("bundle"):
+        # resumed run: the saved sample_ids are bundle items, so the pool above
+        # was already bundled by the loader - nothing to do, this is the guard.
+        print("WARNING: --bundle given but the sample is not bundled items")
+    if bundle > 1:
+        print(f"Bundle: every item is {bundle} calls answered in ONE go -"
+              f" all {bundle} right or the item fails (score scales roughly"
+              f" like per-call-rate^{bundle}, that is where the headroom is)")
     qorder = [p["question_id"] for p in problems]
     probs_by_id = {p["question_id"]: p for p in problems}
     gen_path = os.path.join(run_dir, "generations.jsonl")
@@ -2098,12 +2917,20 @@ def run_one(args, scen, base, model_id, harness_val, harness_note,
         outs = [outs_map.get(si, "") for si in range(args.n)]
         if scen == "codegen":
             codes = [extract_code(o, args.extractor) for o in outs]
+        elif scen == "exec" and bundle > 1:
+            codes = [extract_exec_bundle_answers(o, probs_by_id[qid].get("inputs") or [],
+                                                 args.exec_cot) for o in outs]
         elif scen == "exec":
             codes = [extract_exec_answer(o, args.exec_cot) for o in outs]
+        elif bundle > 1:
+            codes = [extract_top_bundle_answers(o, probs_by_id[qid].get("calls") or [])
+                     for o in outs]
         else:
             codes = [extract_top_answer(o) for o in outs]
         generations.append({"question_id": qid, "output_list": outs, "code_list": codes})
-        compat.append({"question_id": qid, "code_list": codes})
+        compat.append({"question_id": qid,
+                       "code_list": [c if isinstance(c, str) else json.dumps(c)
+                                     for c in codes]})
     if missing:
         print(f"WARNING: {len(missing)}/{len(qorder)} problems have no generation yet "
               f"(rerun the same command to generate them) - they are NOT counted "
@@ -2142,7 +2969,9 @@ def run_one(args, scen, base, model_id, harness_val, harness_note,
                 sys.exit(f"Internal error: problem {qid} has no eval payload "
                          f"(keys: {sorted(probs_by_id[qid])})")
             jobs.append((qid, payload,
-                         entry["code_list"], args.timeout, scen))
+                         entry["code_list"], args.timeout,
+                         (scen + "b") if (bundle > 1 and scen in ("exec", "top"))
+                         else scen))
 
     if jobs:
         print(f"Evaluating {len(jobs)} problems with {args.eval_workers} eval "
@@ -2166,6 +2995,7 @@ def run_one(args, scen, base, model_id, harness_val, harness_note,
     # ---- Phase 4: metrics ------------------------------------------------------
     per_problem, per_diff = [], {}
     per_problem_pass = {}
+    sub_pass, sub_total = 0, 0  # --bundle: per-call (not per-item) counters
     for qid in qorder:
         if qid not in gen_map:
             continue  # stale verdict for a problem with no (kept) generation
@@ -2176,16 +3006,20 @@ def run_one(args, scen, base, model_id, harness_val, harness_note,
         if kind == "codegen":
             n = len(rec["results"])
             c = sum(1 for res in rec["results"] if res and all(x > 0 for x in res))
-        elif kind == "exec":
+        elif kind in ("exec", "execb"):
             # official: skipped (input-echoing) generations are excluded from n;
             # if everything was skipped, n = len(results) and c = 0
             skips = rec.get("skipped", [False] * len(rec["results"]))
             scored = [r for r, s in zip(rec["results"], skips) if not s]
             c = sum(1 for r in scored if r and all(bool(x) for x in r))
             n = len(scored) if scored else len(rec["results"])
-        else:  # top
+        else:  # top / topb
             n = len(rec["results"])
             c = sum(1 for r in rec["results"] if r and all(bool(x) for x in r))
+        for one in rec.get("sub") or []:
+            if isinstance(one, list):
+                sub_total += len(one)
+                sub_pass += sum(1 for x in one if x)
         per_problem.append((n, c))
         per_problem_pass[qid] = c / n if n else 0.0
         diff = probs_by_id[qid]["difficulty"].lower()
@@ -2243,6 +3077,10 @@ def run_one(args, scen, base, model_id, harness_val, harness_note,
             print(f"End of run: {end['target']} is"
                   + (f" still up (HTTP {end['status']})" if end.get("reachable") else
                      f" not answering anymore ({end.get('error')})"))
+    bundle_m = None
+    if bundle > 1 and sub_total:
+        bundle_m = {"k": bundle, "calls": sub_total,
+                    "per_call_pass": round(sub_pass / sub_total, 4)}
     summary = {
         "name": run_slug,
         "model": model_id,
@@ -2259,15 +3097,21 @@ def run_one(args, scen, base, model_id, harness_val, harness_note,
             "difficulty": args.difficulty, "limit": args.limit or None,
             "random_sample": args.random_sample or None,
             "hardest": args.hardest or None,
+            "mix": args.mix or None,
             "sample_note": SAMPLE_NOTE or None,
             "extractor": args.extractor, "eval_timeout": args.timeout,
             "scenario": scen, "exec_cot": bool(args.exec_cot),
+            "bundle": bundle if bundle > 1 else None,
             "problems_total": len(per_problem),
         },
         "sample_hash": hashlib.sha1(",".join(str(q) for q in sorted(
             str(p["question_id"]) for p in problems)).encode()).hexdigest()[:12],
         "counts": {d: len(v) for d, v in sorted(per_diff.items())},
         "hardest_tier": hardest_m if hardest_m["n"] else None,
+        "bundle_tier": bundle_m,
+        # What the sample was drawn from: rows, questions, labels, date range.
+        # A 100% is only meaningful next to this.
+        "pool": POOL_FACTS or None,
         "generation_stats": {
             "generated": n_gen,
             "failed_requests": failed_requests,
@@ -2324,17 +3168,16 @@ def run_one(args, scen, base, model_id, harness_val, harness_note,
     if hardest_m["n"] and hardest_m["n"] < len(per_problem):
         print(f"  hardest: {hardest_m['pass@1'] * 100:.2f}%"
               f"  ({hardest_m['n']} problems of the --hardest tier)")
-    if summary.get("score") is not None and summary["score"] >= 99.0:
-        hard_n = len(per_diff.get("hard", []))
-        if hard_n == len(per_problem):
-            print(f"      100% and every problem in this sample was flagged hard"
-                  f" ({hard_n} of {len(per_problem)}) - this sample separates"
-                  " nothing, do not read it as a ceiling on the model")
-        else:
-            print(f"      100% on {len(per_problem)} problems where only {hard_n}"
-                  " were hard - that sample cannot tell models apart; rerun with"
-                  " --random-sample 100 --hardest 25 (its sample hash changes,"
-                  " so old rows stay separate and comparable on their own terms)")
+    if bundle_m:
+        print(f"  per-call: {bundle_m['per_call_pass'] * 100:.2f}% over"
+              f" {bundle_m['calls']} single calls inside the"
+              f" {bundle_m['k']}-call items (item = all {bundle_m['k']} right)")
+    if summary.get("score") is not None:
+        _sc = summary["score"]
+        if _sc >= 99.0 or (scen != "codegen" and _sc >= 90.0):
+            print(saturation_note(scen, _sc, len(per_problem), per_diff,
+                                  hardest_m, bundle_m=bundle_m,
+                                  harden_target=args.harden_target))
     spd = summary["speed"]
     if spd.get("decode_tokens_per_sec"):
         print(f"   speed: decode {spd['decode_tokens_per_sec']} tok/s, "
@@ -2347,7 +3190,8 @@ def run_one(args, scen, base, model_id, harness_val, harness_note,
     gs = summary.get("generation_stats") or {}
     if gs.get("truncated_at_max_tokens") or gs.get("failed_requests"):
         print(f"   gen: {gs.get('truncated_at_max_tokens', 0)}/{gs.get('generated', 0)} "
-              f"hit the {args.max_tokens}-token cap (truncated = auto-fail), "
+              f"hit the {args.max_tokens}-token cap (their answer is cut off"
+              " mid-way - the partial code is still graded, and it rarely passes), "
               f"{gs.get('failed_requests', 0)} failed request(s) "
               f"(rerun the same command to retry them)")
     if gs.get("pass_rate_when_not_truncated") is not None:
@@ -2706,7 +3550,7 @@ def build_report(only=None, show=True):
     wanted = None
     if only is not None:
         wanted = {only} if isinstance(only, str) else set(only)
-    headers = ["run", "model", "harness", "test", "scenario", "SCORE", "problems", "n", "cap",
+    headers = ["run", "model", "harness", "test", "scenario", "SCORE", "problems", "n", "bundle", "cap",
                "trunc%", "when-complete", "easy", "medium", "hard", "hardest",
                "prefill-tok/s", "gen-tok/s", "gen-min", "sample", "date"]
     table = []
@@ -2723,11 +3567,15 @@ def build_report(only=None, show=True):
         total = sum(r.get("counts", {}).values())
         decode = sp.get("decode_tokens_per_sec") or sp.get("mean_tokens_per_sec")
         scen = cfg.get("scenario", "codegen")
+        b_tier = r.get("bundle_tier") or {}
+        bundle_col = (f"x{cfg['bundle']}" if cfg.get("bundle") else
+                      (f"x{b_tier.get('k')}" if b_tier.get("k") else "-"))
         table.append([
             r["name"], r.get("model") or r.get("server_model") or "-",
             r.get("harness") or "unknown",
             "fast" if scen in ("exec", "top") else "slow", scen,
             r.get("score"), total, cfg.get("n"),
+            bundle_col,
             cfg.get("max_tokens"),
             gs.get("truncated_pct"),
             gs.get("pass_rate_when_not_truncated", "-") if gs.get("pass_rate_when_not_truncated") is not None else "-",
@@ -2782,9 +3630,10 @@ def build_report(only=None, show=True):
               "\ngen-min. It never means the agent answered, and nothing is routed through"
               "\nit: no harness sees a problem, so both rows are the raw model. unknown ="
               "\nnobody answered (older run, or a detached run without --harness) - set it"
-              "\nwith --set-harness. hardest = pass rate over the --hardest tier of"
-              "\nthat sample alone ('-' when the run had no such tier). Rows are"
-              "\ndirectly comparable only when test / scenario / problems / n / cap /"
+              "\nwith --set-harness. hardest = pass rate over the hardest tier of"
+              "\nthat sample alone (--hardest N, or the 'hardest' share of a --mix) - '-' when the run had no such tier. bundle = xK"
+              "\n= a fast row whose items bundle K calls in one answer, all-or-nothing (--bundle K); '-' = one-call items. Rows are"
+              "\ndirectly comparable only when test / scenario / problems / n / bundle / cap /"
               "\nsample columns match.")
     os.makedirs("bench", exist_ok=True)
     with open("bench/report.md", "w", encoding="utf-8") as f:
@@ -2796,11 +3645,11 @@ def build_report(only=None, show=True):
                 "cap = per-answer max_tokens (thinking budget); trunc% = share of answers that hit it.\n"
                 "when-complete = pass rate over the answers that did NOT hit the cap (skill signal).\n"
                 "hardest = pass rate over the --hardest tier of that sample alone (the N hardest\n"
-                "problems in it, saved in that run's hardest_ids.json); '-' when the run had no\n"
+                "problems of --hardest, or the 'hardest' share of a --mix, saved in that run's hardest_ids.json); '-' when the run had no\n"
                 "such tier.\n"
                 "test = slow (code_generation, the main scenario) or fast (code_execution /\n"
                 "test_output_prediction): fast rows measure narrower skills, run much quicker,\n"
-                "and compare across models only against the same scenario's own rows.\n"
+                "and compare across models only against the same scenario's own rows. A fast row a strong model clears is a ceiling check, not a ranking: those pools are small and old, and --pool-info prints what a pool can be sampled from.\n"
                 "harness = did an agent chat share the model server during that run: every\n"
                 "run answers that question out loud (never guessed), because those requests\n"
                 "queue behind the benchmark and inflate gen-min (wall time) of harness=yes\n"
@@ -2811,8 +3660,10 @@ def build_report(only=None, show=True):
                 "harness_probe; a name or path is stored as text only.\n"
                 "unknown = nobody answered (older run, or a detached run started\n"
                 "without --harness) - backfill it with --set-harness yes|no --name <run>.\n"
-                "Rows are directly comparable only when test / scenario / problems / n / cap /\n"
-                "sample columns match.\n")
+                "bundle = xK on a fast row: its items carry K calls answered in one go,\n"
+                "all-or-nothing (--bundle K); '-' = classic one-call items.\n"
+                "Rows are directly comparable only when test / scenario / problems / n /\n"
+                "bundle / cap / sample columns match.\n")
     with open("bench/report.csv", "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         w.writerow(headers)
@@ -2896,6 +3747,79 @@ def self_test():
     tok_ok = flags == want
     ok = ok and tok_ok
     print(f"[{'OK ' if tok_ok else 'FAIL'}] top scenario: got {flags} want {want}")
+
+    # --- --bundle checks: K calls in one answer, all-or-nothing -------------
+    xb_payload = json.dumps({"items": [
+        {"code": "def f(x):\n    return x * 2\n", "input": "f(3)", "output": "6"},
+        {"code": "def h(x):\n    return x + 1\n", "input": "h(4)", "output": "5"},
+    ]})
+    xb_answers = [
+        ["6", "5"],        # all right -> item right
+        ["6", "4"],        # one wrong -> item wrong (that is the whole point)
+        ["6"],             # missing answer -> wrong
+        ["f(3)", "5"],     # echoes an input -> skipped, official quirk
+    ]
+    rec = eval_one_problem(("selftest", xb_payload, xb_answers, timeout, "execb"))
+    flags = [bool(r[0]) for r in rec["results"]]
+    want = [True, False, False, False]
+    bok = flags == want and rec.get("skipped") == [False, False, False, True]
+    subs_ok = (rec["sub"][0] == [True, True] and rec["sub"][1] == [True, False])
+    ok = ok and bok and subs_ok
+    print(f"[{'OK ' if bok and subs_ok else 'FAIL'}] exec bundle (all-or-nothing"
+          f" + per-call sub): got {flags} skipped={rec.get('skipped')} want {want}"
+          f" sub0={rec['sub'][0]} sub1={rec['sub'][1]}")
+
+    tb_payload = json.dumps({"items": [{"expected": "6"}, {"expected": "7"}]})
+    tb_preds = [
+        ["assert f(3) == 6", "assert g(2) == 7"],
+        ["assert f(3) == 6", "assert g(2) == 8"],
+        ["assert f(3) == 6"],
+    ]
+    rec = eval_one_problem(("selftest", tb_payload, tb_preds, timeout, "topb"))
+    flags = [bool(r[0]) for r in rec["results"]]
+    want = [True, False, False]
+    tb_ok = flags == want
+    ok = ok and tb_ok
+    print(f"[{'OK ' if tb_ok else 'FAIL'}] top bundle (all-or-nothing):"
+          f" got {flags} want {want}")
+
+    xb_extract = [
+        ("execb in-order block",
+         extract_exec_bundle_answers(
+             "[ANSWER]\nassert f(3) == 6\nassert h(4) == 5\n[/ANSWER]",
+             ["f(3)", "h(4)"]), ["6", "5"]),
+        ("execb matched by call text",
+         extract_exec_bundle_answers(
+             "[ANSWER]\nassert h(4) == 5\nassert f(3) == 6\n[/ANSWER]",
+             ["f(3)", "h(4)"]), ["6", "5"]),
+        ("execb cot block",
+         extract_exec_bundle_answers(
+             "step by step...\n[ANSWER]\nassert f(3) == 6\nassert h(4) == 5\n"
+             "[/ANSWER]", ["f(3)", "h(4)"], cot=True), ["6", "5"]),
+        ("execb missing stays empty",
+         extract_exec_bundle_answers("[ANSWER]\nassert f(3) == 6\n[/ANSWER]",
+                                     ["f(3)", "h(4)"]), ["6", ""]),
+        ("topb assert lines",
+         extract_top_bundle_answers(
+             "here:\n```python\nassert f(3) == 6\nassert g(2) == 7\n```",
+             ["f(3)", "g(2)"]),
+         ["assert f(3) == 6", "assert g(2) == 7"]),
+    ]
+    for name, got, want in xb_extract:
+        eok = got == want
+        ok = ok and eok
+        print(f"[{'OK ' if eok else 'FAIL'}] {name}: got {got!r} want {want!r}")
+
+    fake_rows = ([{"question_id": f"7#{i}", "difficulty": "medium"}
+                  for i in range(5)]
+                 + [{"question_id": f"8#{i}", "difficulty": "easy"}
+                    for i in range(3)])
+    chunks = _bundle_chunks(fake_rows, 2)
+    bok2 = ([c[2][0]["question_id"] for c in chunks] == ["7#0", "7#2", "8#0"]
+            and all(len(c[2]) == 2 for c in chunks))
+    ok = ok and bok2
+    print(f"[{'OK ' if bok2 else 'FAIL'}] bundle chunking is deterministic and"
+          f" drops the leftover of a question (5+3 rows -> 3 pairs)")
 
     checks = [
         ("exec-extract direct",

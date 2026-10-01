@@ -1,0 +1,562 @@
+[
+  {
+    "question_id": "2727#b4c0",
+    "output_list": [
+      "[ANSWER]\nassert countSeniors(details = ['7868190130M7522', '5303914400F9211', '9273338290F4010']) == 2\nassert countSeniors(details = ['7868190130M7522', '5303914400F9211', '9273338290F4010']) == 2\nassert countSeniors(details = ['7868190130M7522', '5303914400F9211', '9273338290F4010']) == 2\nassert countSeniors(details = ['1313579440F2036', '2921522980M5644']) == 0\n[/ANSWER]"
+    ],
+    "code_list": [
+      [
+        "2",
+        "2",
+        "2",
+        "0"
+      ]
+    ]
+  },
+  {
+    "question_id": "2728#b4c0",
+    "output_list": [
+      "[ANSWER]\nassert matrixSum(nums = [[1]]) == 1\nassert matrixSum(nums = [[1]]) == 1\nassert matrixSum(a = [[1]]) == 1\nassert matrixSum(nums = [[1]]) == 1\n[/ANSWER]"
+    ],
+    "code_list": [
+      [
+        "1",
+        "1",
+        "1",
+        "1"
+      ]
+    ]
+  },
+  {
+    "question_id": "2756#b4c0",
+    "output_list": [
+      "[ANSWER]\nassert buyChoco(prices = [1, 2, 2], money = 3) == 0\nassert buyChoco(prices = [1, 2, 2], money = 3) == 0\nassert buyChoco(a = [1, 2, 2], money = 3) == 0\nassert buyChoco(prices = [3, 2, 3], money = 3) == 3\n[/ANSWER]"
+    ],
+    "code_list": [
+      [
+        "0",
+        "0",
+        "0",
+        "3"
+      ]
+    ]
+  },
+  {
+    "question_id": "2777#b4c0",
+    "output_list": [
+      "[ANSWER]\nassert distinctDifferenceArray(a = [1, 2, 3, 4, 5]) == [-3, -1, 1, 3, 5]\nassert distinctDifferenceArray(nums = [1, 2, 3, 4, 5]) == [-3, -1, 1, 3, 5]\nassert distinctDifferenceArray(nums = [1, 2, 3, 4, 5]) == [-3, -1, 1, 3, 5]\nassert distinctDifferenceArray(nums = [3, 2, 3, 4, 2]) == [-2, -1, 0, 2, 3]\n[/ANSWER]"
+    ],
+    "code_list": [
+      [
+        "[-3, -1, 1, 3, 5]",
+        "[-3, -1, 1, 3, 5]",
+        "[-3, -1, 1, 3, 5]",
+        "[-2, -1, 0, 2, 3]"
+      ]
+    ]
+  },
+  {
+    "question_id": "2785#b4c0",
+    "output_list": [
+      "[ANSWER]\nassert semiOrderedPermutation(nums = [2, 4, 1, 3]) == 3\nassert semiOrderedPermutation(nums = [2, 4, 1, 3]) == 3\nassert semiOrderedPermutation(nums = [2, 4, 1, 3]) == 3\nassert semiOrderedPermutation(nums = [2, 4, 1, 3]) == 3\n[/ANSWER]"
+    ],
+    "code_list": [
+      [
+        "3",
+        "3",
+        "3",
+        "3"
+      ]
+    ]
+  },
+  {
+    "question_id": "2786#b4c0",
+    "output_list": [
+      "[ANSWER]\nassert longestSemiRepetitiveSubstring(s = '52233') == 4\nassert longestSemiRepetitiveSubstring(s = '52233') == 4\nassert longestSemiRepetitiveSubstring(s = '5494') == 4\nassert longestSemiRepetitiveSubstring(s = '5494') == 4\n[/ANSWER]"
+    ],
+    "code_list": [
+      [
+        "4",
+        "4",
+        "4",
+        "4"
+      ]
+    ]
+  },
+  {
+    "question_id": "2816#b4c0",
+    "output_list": [
+      "[ANSWER]\nassert makeSmallestPalindrome(s = 'seven') == 'neven'\nassert makeSmallestPalindrome(s = 'seven') == 'neven'\nassert makeSmallestPalindrome(s = 'abcd') == 'abba'\nassert makeSmallestPalindrome(s = 'abcd') == 'abba'\n[/ANSWER]"
+    ],
+    "code_list": [
+      [
+        "'neven'",
+        "'neven'",
+        "'abba'",
+        "'abba'"
+      ]
+    ]
+  },
+  {
+    "question_id": "2817#b4c0",
+    "output_list": [
+      "[ANSWER]\nassert minimumCost(s = '0011') == 2\nassert minimumCost(s = '0011') == 2\nassert minimumCost(s = '0011') == 2\nassert minimumCost(s = '0011') == 2\n[/ANSWER]"
+    ],
+    "code_list": [
+      [
+        "2",
+        "2",
+        "2",
+        "2"
+      ]
+    ]
+  },
+  {
+    "question_id": "2824#b4c0",
+    "output_list": [
+      "[ANSWER]\nassert isFascinating(n = 100) == False\nassert isFascinating(n = 100) == False\nassert isFascinating(n = 100) == False\nassert isFascinating(n = 100) == False\n[/ANSWER]"
+    ],
+    "code_list": [
+      [
+        "False",
+        "False",
+        "False",
+        "False"
+      ]
+    ]
+  },
+  {
+    "question_id": "2832#b4c0",
+    "output_list": [
+      "[ANSWER]\nassert longestEqualSubarray(nums = [1, 1, 2, 2, 1, 1], k = 2) == 4\nassert longestEqualSubarray(nums = [1, 3, 2, 3, 1, 3], k = 3) == 3\nassert longestEqualSubarray(A = [1, 1, 2, 2, 1, 1], K = 2) == 4\nassert longestEqualSubarray(nums = [1, 3, 2, 3, 1, 3], k = 3) == 3\n[/ANSWER]"
+    ],
+    "code_list": [
+      [
+        "4",
+        "3",
+        "4",
+        "3"
+      ]
+    ]
+  },
+  {
+    "question_id": "2837#b4c0",
+    "output_list": [
+      "[ANSWER]\nassert makeTheIntegerZero(a = 3, b = -2) == 3\nassert makeTheIntegerZero(num1 = 5, num2 = 7) == -1\nassert makeTheIntegerZero(num1 = 3, num2 = -2) == 3\nassert makeTheIntegerZero(num1 = 3, num2 = -2) == 3\n[/ANSWER]"
+    ],
+    "code_list": [
+      [
+        "3",
+        "-1",
+        "3",
+        "3"
+      ]
+    ]
+  },
+  {
+    "question_id": "2855#b4c0",
+    "output_list": [
+      "[ANSWER]\nassert maximumJumps(nums = [1, 3, 6, 4, 1, 2], target = 0) == -1\nassert maximumJumps(nums = [1, 3, 6, 4, 1, 2], target = 0) == -1\nassert maximumJumps(nums = [1, 3, 6, 4, 1, 2], target = 0) == -1\nassert maximumJumps(nums = [1, 3, 6, 4, 1, 2], target = 2) == 3\n[/ANSWER]"
+    ],
+    "code_list": [
+      [
+        "-1",
+        "-1",
+        "-1",
+        "3"
+      ]
+    ]
+  },
+  {
+    "question_id": "2866#b4c0",
+    "output_list": [
+      "[ANSWER]\nassert longestAlternatingSubarray(nums = [1, 2], t = 2) == 1\nassert longestAlternatingSubarray(nums = [1, 2], threshold = 2) == 1\nassert longestAlternatingSubarray(nums = [3, 2, 5, 4], threshold = 5) == 3\nassert longestAlternatingSubarray(nums = [1, 2], threshold = 2) == 1\n[/ANSWER]"
+    ],
+    "code_list": [
+      [
+        "1",
+        "1",
+        "3",
+        "1"
+      ]
+    ]
+  },
+  {
+    "question_id": "2868#b4c0",
+    "output_list": [
+      "[ANSWER]\nassert continuousSubarrays(A = [1, 2, 3]) == 6\nassert continuousSubarrays(a = [1, 2, 3]) == 6\nassert continuousSubarrays(nums = [1, 2, 3]) == 6\nassert continuousSubarrays(A = [1, 2, 3]) == 6\n[/ANSWER]"
+    ],
+    "code_list": [
+      [
+        "6",
+        "6",
+        "6",
+        "6"
+      ]
+    ]
+  },
+  {
+    "question_id": "2887#b4c0",
+    "output_list": [
+      "[ANSWER]\nassert sortVowels(s = 'lYmpH') == 'lYmpH'\nassert sortVowels(s = 'lYmpH') == 'lYmpH'\nassert sortVowels(s = 'lYmpH') == 'lYmpH'\nassert sortVowels(s = 'lEetcOde') == 'lEOtcede'\n[/ANSWER]"
+    ],
+    "code_list": [
+      [
+        "'lYmpH'",
+        "'lYmpH'",
+        "'lYmpH'",
+        "'lEOtcede'"
+      ]
+    ]
+  },
+  {
+    "question_id": "2888#b4c0",
+    "output_list": [
+      "[ANSWER]\nassert minimumIndex(nums = [1, 2, 2, 2]) == 2\nassert minimumIndex(nums = [1, 2, 2, 2]) == 2\nassert minimumIndex(nums = [1, 2, 2, 2]) == 2\nassert minimumIndex(nums = [1, 2, 2, 2]) == 2\n[/ANSWER]"
+    ],
+    "code_list": [
+      [
+        "2",
+        "2",
+        "2",
+        "2"
+      ]
+    ]
+  },
+  {
+    "question_id": "2891#b4c0",
+    "output_list": [
+      "[ANSWER]\nassert maximumBeauty(nums = [4, 6, 1, 2], k = 2) == 3\nassert maximumBeauty(nums = [4, 6, 1, 2], k = 2) == 3\nassert maximumBeauty(nums = [1, 1, 1, 1], k = 10) == 4\nassert maximumBeauty(nums = [1, 1, 1, 1], k = 10) == 4\n[/ANSWER]"
+    ],
+    "code_list": [
+      [
+        "3",
+        "3",
+        "4",
+        "4"
+      ]
+    ]
+  },
+  {
+    "question_id": "2915#b4c0",
+    "output_list": [
+      "[ANSWER]\nassert countInterestingSubarrays(nums = [3, 1, 9, 6], modulo = 3, k = 0) == 2\nassert countInterestingSubarrays(nums = [3, 1, 9, 6], modulo = 3, k = 0) == 2\nassert countInterestingSubarrays(nums = [3, 2, 4], m = 2, k = 1) == 3\nassert countInterestingSubarrays(nums = [3, 1, 9, 6], modulo = 3, k = 0) == 2\n[/ANSWER]"
+    ],
+    "code_list": [
+      [
+        "2",
+        "2",
+        "3",
+        "2"
+      ]
+    ]
+  },
+  {
+    "question_id": "2917#b4c0",
+    "output_list": [
+      "[ANSWER]\nassert countPairs(nums = [-1, 1, 2, 3, 1], target = 2) == 3\nassert countPairs(nums = [-1, 1, 2, 3, 1], t = 2) == 3\nassert countPairs(nums = [-1, 1, 2, 3, 1], target = 2) == 3\nassert countPairs(nums = [-1, 1, 2, 3, 1], target = 2) == 3\n[/ANSWER]"
+    ],
+    "code_list": [
+      [
+        "3",
+        "3",
+        "3",
+        "3"
+      ]
+    ]
+  },
+  {
+    "question_id": "2919#b4c0",
+    "output_list": [
+      "[ANSWER]\nassert maxIncreasingGroups(u = [2, 1, 2]) == 2\nassert maxIncreasingGroups(A = [1, 1]) == 1\nassert maxIncreasingGroups(x = [1, 2, 5]) == 3\nassert maxIncreasingGroups(usageLimits = [2, 1, 2]) == 2\n[/ANSWER]"
+    ],
+    "code_list": [
+      [
+        "2",
+        "1",
+        "3",
+        "2"
+      ]
+    ]
+  },
+  {
+    "question_id": "2920#b4c0",
+    "output_list": [
+      "[ANSWER]\nassert minimumSeconds(nums = [5, 5, 5, 5]) == 0\nassert minimumSeconds(nums = [5, 5, 5, 5]) == 0\nassert minimumSeconds(nums = [5, 5, 5, 5]) == 0\nassert minimumSeconds(nums = [5, 5, 5, 5]) == 0\n[/ANSWER]"
+    ],
+    "code_list": [
+      [
+        "0",
+        "0",
+        "0",
+        "0"
+      ]
+    ]
+  },
+  {
+    "question_id": "2977#b4c0",
+    "output_list": [
+      "[ANSWER]\nassert isAcronym(words = ['alice', 'bob', 'charlie'], s = 'abc') == True\nassert isAcronym(words = ['an', 'apple'], s = 'a') == False\nassert isAcronym(words = ['an', 'apple'], s = 'a') == False\nassert isAcronym(words = ['an', 'apple'], s = 'a') == False\n[/ANSWER]"
+    ],
+    "code_list": [
+      [
+        "True",
+        "False",
+        "False",
+        "False"
+      ]
+    ]
+  },
+  {
+    "question_id": "2999#b4c0",
+    "output_list": [
+      "[ANSWER]\nassert canBeEqual(s1 = 'abcd', s2 = 'cdab') == True\nassert canBeEqual(s1 = 'abcd', s2 = 'dacb') == False\nassert canBeEqual(s1 = 'abcd', s2 = 'dacb') == False\nassert canBeEqual(s1 = 'abcd', s2 = 'cdab') == True\n[/ANSWER]"
+    ],
+    "code_list": [
+      [
+        "True",
+        "False",
+        "False",
+        "True"
+      ]
+    ]
+  },
+  {
+    "question_id": "3018#b4c0",
+    "output_list": [
+      "[ANSWER]\nassert canMakeSubsequence(str1 = 'ab', str2 = 'd') == False\nassert canMakeSubsequence(str1 = 'ab', str2 = 'd') == False\nassert canMakeSubsequence(str1 = 'ab', str2 = 'd') == False\nassert canMakeSubsequence(str1 = 'ab', str2 = 'd') == False\n[/ANSWER]"
+    ],
+    "code_list": [
+      [
+        "False",
+        "False",
+        "False",
+        "False"
+      ]
+    ]
+  },
+  {
+    "question_id": "3019#b4c0",
+    "output_list": [
+      "[ANSWER]\nassert furthestDistanceFromOrigin(moves = 'L_RL__R') == 3\nassert furthestDistanceFromOrigin(moves = 'L_RL__R') == 3\nassert furthestDistanceFromOrigin(moves = '_______') == 7\nassert furthestDistanceFromOrigin(moves = '_______') == 7\n[/ANSWER]"
+    ],
+    "code_list": [
+      [
+        "3",
+        "3",
+        "7",
+        "7"
+      ]
+    ]
+  },
+  {
+    "question_id": "3034#b4c0",
+    "output_list": [
+      "[ANSWER]\nassert numberOfPoints(nums = [[3, 6], [1, 5], [4, 7]]) == 7\nassert numberOfPoints(nums = [[1, 3], [5, 8]]) == 7\nassert numberOfPoints(nums = [[3, 6], [1, 5], [4, 7]]) == 7\nassert numberOfPoints(nums = [[1, 3], [5, 8]]) == 7\n[/ANSWER]"
+    ],
+    "code_list": [
+      [
+        "7",
+        "7",
+        "7",
+        "7"
+      ]
+    ]
+  },
+  {
+    "question_id": "3055#b4c0",
+    "output_list": [
+      "[ANSWER]\nassert maximumOddBinaryNumber(s = '010') == \"001\"\nassert maximumOddBinaryNumber(s = '010') == \"001\"\nassert maximumOddBinaryNumber(s = '0101') == \"1001\"\nassert maximumOddBinaryNumber(s = '010') == \"001\"\n[/ANSWER]"
+    ],
+    "code_list": [
+      [
+        "\"001\"",
+        "\"001\"",
+        "\"1001\"",
+        "\"001\""
+      ]
+    ]
+  },
+  {
+    "question_id": "3080#b4c0",
+    "output_list": [
+      "[ANSWER]\nassert maxSubarrays(nums = [1, 0, 2, 0, 1, 2]) == 3\nassert maxSubarrays(nums = [1, 0, 2, 0, 1, 2]) == 3\nassert maxSubarrays(nums = [1, 0, 2, 0, 1, 2]) == 3\nassert maxSubarrays(nums = [1, 0, 2, 0, 1, 2]) == 3\n[/ANSWER]"
+    ],
+    "code_list": [
+      [
+        "3",
+        "3",
+        "3",
+        "3"
+      ]
+    ]
+  },
+  {
+    "question_id": "3081#b4c0",
+    "output_list": [
+      "[ANSWER]\nassert minLengthAfterRemovals(nums = [1, 3, 4, 9]) == 0\nassert minLengthAfterRemovals(nums = [1, 3, 4, 9]) == 0\nassert minLengthAfterRemovals(nums = [2, 3, 6, 9]) == 0\nassert minLengthAfterRemovals(nums = [2, 3, 6, 9]) == 0\n[/ANSWER]"
+    ],
+    "code_list": [
+      [
+        "0",
+        "0",
+        "0",
+        "0"
+      ]
+    ]
+  },
+  {
+    "question_id": "3094#b4c0",
+    "output_list": [
+      "[ANSWER]\nassert minOperations(nums = [2, 1, 2, 2, 3, 3]) == -1\nassert minOperations(nums = [2, 3, 3, 2, 2, 4, 2, 3, 4]) == 4\nassert minOperations(nums = [2, 1, 2, 2, 3, 3]) == -1\nassert minOperations(nums = [2, 1, 2, 2, 3, 3]) == -1\n[/ANSWER]"
+    ],
+    "code_list": [
+      [
+        "-1",
+        "4",
+        "-1",
+        "-1"
+      ]
+    ]
+  },
+  {
+    "question_id": "3104#b4c0",
+    "output_list": [
+      "[ANSWER]\nassert countWays(nums = [6, 0, 3, 3, 6, 7, 2, 7]) == 3\nassert countWays(nums = [6, 0, 3, 3, 6, 7, 2, 7]) == 3\nassert countWays(nums = [6, 0, 3, 3, 6, 7, 2, 7]) == 3\nassert countWays(nums = [6, 0, 3, 3, 6, 7, 2, 7]) == 3\n[/ANSWER]"
+    ],
+    "code_list": [
+      [
+        "3",
+        "3",
+        "3",
+        "3"
+      ]
+    ]
+  },
+  {
+    "question_id": "3106#b4c0",
+    "output_list": [
+      "[ANSWER]\nassert lengthOfLongestSubsequence(nums = [1, 1, 5, 4, 5], target = 3) == -1\nassert lengthOfLongestSubsequence(nums = [1, 1, 5, 4, 5], target = 3) == -1\nassert lengthOfLongestSubsequence(nums = [1, 1, 5, 4, 5], target = 3) == -1\nassert lengthOfLongestSubsequence(nums = [1, 1, 5, 4, 5], target = 3) == -1\n[/ANSWER]"
+    ],
+    "code_list": [
+      [
+        "-1",
+        "-1",
+        "-1",
+        "-1"
+      ]
+    ]
+  },
+  {
+    "question_id": "3163#b4c0",
+    "output_list": [
+      "[ANSWER]\nassert sumCounts(nums = [1, 1]) == 3\nassert sumCounts(nums = [1, 1]) == 3\nassert sumCounts(nums = [1, 1]) == 3\nassert sumCounts(nums = [1, 1]) == 3\n[/ANSWER]"
+    ],
+    "code_list": [
+      [
+        "3",
+        "3",
+        "3",
+        "3"
+      ]
+    ]
+  },
+  {
+    "question_id": "3164#b4c0",
+    "output_list": [
+      "[ANSWER]\nassert lastVisitedIntegers(words = ['1', '2', 'prev', 'prev', 'prev']) == [2, 1, -1]\nassert lastVisitedIntegers(words = ['1', '2', 'prev', 'prev', 'prev']) == [2, 1, -1]\nassert lastVisitedIntegers(words = ['1', '2', 'prev', 'prev', 'prev']) == [2, 1, -1]\nassert lastVisitedIntegers(words = ['1', 'prev', '2', 'prev', 'prev']) == [1, 2, 1]\n[/ANSWER]"
+    ],
+    "code_list": [
+      [
+        "[2, 1, -1]",
+        "[2, 1, -1]",
+        "[2, 1, -1]",
+        "[1, 2, 1]"
+      ]
+    ]
+  },
+  {
+    "question_id": "3166#b4c0",
+    "output_list": [
+      "[ANSWER]\nassert minGroupsForValidAssignment(nums = [3, 2, 3, 2, 3]) == 2\nassert minGroupsForValidAssignment(nums = [10, 10, 10, 3, 1, 1]) == 4\nassert minGroupsForValidAssignment(nums = [10, 10, 10, 3, 1, 1]) == 4\nassert minGroupsForValidAssignment(nums = [3, 2, 3, 2, 3]) == 2\n[/ANSWER]"
+    ],
+    "code_list": [
+      [
+        "2",
+        "4",
+        "4",
+        "2"
+      ]
+    ]
+  },
+  {
+    "question_id": "3176#b4c0",
+    "output_list": [
+      "[ANSWER]\nassert minimumSum(nums = [8, 6, 1, 5, 3]) == 9\nassert minimumSum(nums = [8, 6, 1, 5, 3]) == 9\nassert minimumSum(nums = [6, 5, 4, 3, 4, 5]) == -1\nassert minimumSum(nums = [8, 6, 1, 5, 3]) == 9\n[/ANSWER]"
+    ],
+    "code_list": [
+      [
+        "9",
+        "9",
+        "-1",
+        "9"
+      ]
+    ]
+  },
+  {
+    "question_id": "3194#b4c0",
+    "output_list": [
+      "[ANSWER]\nassert findWordsContaining(words = ['abc', 'bcd', 'aaaa', 'cbc'], x = 'a') == [0, 2]\nassert findWordsContaining(words = ['leet', 'code'], x = 'e') == [0, 1]\nassert findWordsContaining(words = ['leet', 'code'], x = 'e') == [0, 1]\nassert findWordsContaining(words = ['abc', 'bcd', 'aaaa', 'cbc'], x = 'a') == [0, 2]\n[/ANSWER]"
+    ],
+    "code_list": [
+      [
+        "[0, 2]",
+        "[0, 1]",
+        "[0, 1]",
+        "[0, 2]"
+      ]
+    ]
+  },
+  {
+    "question_id": "3199#b4c0",
+    "output_list": [
+      "[ANSWER]\nassert distributeCandies(n = 5, limit = 2) == 3\nassert distributeCandies(n = 3, limit = 3) == 10\nassert distributeCandies(n = 3, limit = 3) == 10\nassert distributeCandies(n = 5, limit = 2) == 3\n[/ANSWER]"
+    ],
+    "code_list": [
+      [
+        "3",
+        "10",
+        "10",
+        "3"
+      ]
+    ]
+  },
+  {
+    "question_id": "3209#b4c0",
+    "output_list": [
+      "[ANSWER]\nassert minimumCoins(prices = [1, 10, 1, 1]) == 2\nassert minimumCoins(prices = [3, 1, 2]) == 4\nassert minimumCoins(prices = [3, 1, 2]) == 4\nassert minimumCoins(prices = [3, 1, 2]) == 4\n[/ANSWER]"
+    ],
+    "code_list": [
+      [
+        "2",
+        "4",
+        "4",
+        "4"
+      ]
+    ]
+  },
+  {
+    "question_id": "3210#b4c0",
+    "output_list": [
+      "[ANSWER]\nassert beautifulSubstrings(s = 'abba', k = 1) == 3\nassert beautifulSubstrings(s = 'bcdf', k = 1) == 0\nassert beautifulSubstrings(s = 'baeyh', k = 2) == 2\nassert beautifulSubstrings(s = 'bcdf', k = 1) == 0\n[/ANSWER]"
+    ],
+    "code_list": [
+      [
+        "3",
+        "0",
+        "2",
+        "0"
+      ]
+    ]
+  }
+]
