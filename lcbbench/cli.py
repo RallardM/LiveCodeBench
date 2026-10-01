@@ -16,6 +16,7 @@ from .generate import auth_headers
 from .harness import (HARNESS_SUFFIX, SCEN_SUFFIX, ask_harness_mode, ask_label,
                       both_answers, probe_harness, recorded_harness,
                       save_harness_addr, slugify)
+from .harness_agent import preflight
 from .pipeline import run_one
 from .report import build_report
 from .sampling import parse_mix
@@ -32,9 +33,12 @@ The two commands you need (from your own PowerShell window):
 
 Two things are asked out loud and never guessed:
   WHICH MODEL: the label defaults to the model id the server reports.
-  WHICH MODE:  is an agent chat (a harness) sharing the model server? The answer
-               becomes part of the run folder (-harness / -noharness), so both
-               modes are two comparable rows. --both runs both passes itself.
+  WHICH MODE:  raw model (-noharness) or solved through DeepSeek Harness
+               (-harness). In the harness pass every item goes through `dsh
+               --profile headless` with its full default tools (shell, editor,
+               planning, sub-agents...) against the same model server, then the
+               same grader scores its final message. --both runs both passes.
+First time: python lcb_bench.py --harness-check   (is dsh installed and working?)
 
 Everything checkpoints under bench/<run>/, so after a crash or a closed window
 you rerun the same command and it resumes.
@@ -157,6 +161,41 @@ def build_parser():
     ap.add_argument("--harness-note", default=None, metavar="ADDRESS_OR_NAME",
                     help="With --harness yes (or --both): say WHICH harness shared"
                          " the server. An address is pinged at start and end.")
+    ap.add_argument("--harness-mode", default="agent", choices=["agent", "raw"],
+                    help="What the harness pass (--harness yes / --both pass 2) does."
+                         " agent (default) = each item is solved by DeepSeek Harness"
+                         " (dsh headless) with its full default toolset against the"
+                         " same model server. raw = the old behaviour: the raw model"
+                         " answers and an agent chat merely shares the server.")
+    ap.add_argument("--harness-check", action="store_true",
+                    help="Test the agent pass without running a benchmark: dsh installed,"
+                         " overlay accepted, and a real smoke task (the agent runs a"
+                         " command and answers). Needs the model server up.")
+    ap.add_argument("--skip-harness-check", action="store_true",
+                    help="Skip the automatic smoke task before an agent pass.")
+    ap.add_argument("--harness-cmd", default=None, metavar="CMD",
+                    help="How to start dsh (default: `dsh` on PATH, else npx"
+                         " @deepseek-ai/dsh). Also read from DSH_CMD.")
+    ap.add_argument("--harness-home", default=None, metavar="DIR",
+                    help="DSH_HOME of the agent pass (default bench\\_dsh_home: a clean,"
+                         " isolated, out-of-the-box dsh). Point it at your own ~/.dsh to"
+                         " use your AGENTS.md, skills and MCP servers.")
+    ap.add_argument("--harness-access", default="full", choices=["full", "workspace"],
+                    help="full (default) = danger-full-access, no approval prompts (nobody"
+                         " can answer them headless; needed for a working shell on"
+                         " Windows). workspace = workspace-write sandbox, blocked actions"
+                         " fail. Each item runs in its own empty temp directory either way.")
+    ap.add_argument("--harness-timeout", type=float, default=None, metavar="MIN",
+                    help="Minutes one item may take in the agent pass before it is"
+                         " killed and scored as it stands. Default 20 (fast suite), 40"
+                         " (long suite), 30 (other runs).")
+    ap.add_argument("--harness-web", action="store_true",
+                    help="Keep dsh's web_search / web_fetch tools. Off by default: the"
+                         " answers of public benchmarks are on the web, so a lookup"
+                         " would measure the search, not the model.")
+    ap.add_argument("--harness-patch", action="append", default=None, metavar="FILE",
+                    help="An extra dsh patch overlay (repeatable), e.g. to add MCP"
+                         " servers or another plugin to the agent.")
     ap.add_argument("--set-harness", default=None, choices=["yes", "no"],
                     metavar="{yes,no}",
                     help="With --name: backfill the harness column of an existing run"
@@ -276,6 +315,10 @@ def main():
                      " one code_generation problem is already a whole program")
     if args.harden_target is not None and not (0 < args.harden_target <= 100):
         ap.error("--harden-target is a percentage between 0 and 100")
+    args.harness_agent = (args.harness_mode == "agent")
+    if args.harness_timeout is None:
+        args.harness_timeout = {"fast": 20, "long": 40}.get(args.suite, 30)
+    args.dsh_version = None
     args.skills_parsed = None
     if args.skills:
         from .suite_data import SKILLS
@@ -317,6 +360,14 @@ def main():
         model_id = args.model
         print(f"Could not query {args.base_url}/models ({type(exc).__name__}):"
               " pass --base-url and/or --model if this is not llama-server on :8080.")
+    if args.harness_check:
+        if not model_id:
+            ap.error("--harness-check needs the model server up (or --model <id>)")
+        info = preflight(args, model_id, smoke=True)
+        print("\nHarness check passed: the agent pass can run. Use --both (or --harness"
+              " yes) with --suite fast / --suite long.")
+        return
+
     if args.name:
         base = slugify(args.name)
     elif model_id:
@@ -328,7 +379,7 @@ def main():
     kind = args.suite or scen          # key into SCEN_SUFFIX
     prev_harness = _prev_harness(base, kind)
     if args.both:
-        passes = both_answers(base, kind, args.harness_note)
+        passes = both_answers(base, kind, args.harness_note, agent=args.harness_agent)
     else:
         if args.harness:
             harness_val, harness_note = args.harness, args.harness_note
@@ -337,12 +388,17 @@ def main():
             stem = base + SCEN_SUFFIX[kind]
             folders = {mode: stem + HARNESS_SUFFIX[mode] for mode in HARNESS_SUFFIX}
             folders[None] = stem
-            harness_val, harness_note, harness_src = ask_harness_mode(prev_harness, folders)
+            harness_val, harness_note, harness_src = ask_harness_mode(
+                prev_harness, folders, agent=args.harness_agent)
         else:
             harness_val, harness_note = prev_harness, None
             harness_src = ("kept from an earlier phase of this run" if prev_harness
                            else "not answered (detached run) - use --harness yes|no")
         passes = [(harness_val, harness_note, harness_src)]
+
+    if args.harness_agent and any(p[0] == "yes" for p in passes) and model_id:
+        info = preflight(args, model_id, smoke=not args.skip_harness_check)
+        args.dsh_version = info["version"]
 
     clock = None
     if args.suite:

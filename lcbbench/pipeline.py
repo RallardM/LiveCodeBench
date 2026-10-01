@@ -16,10 +16,11 @@ from .advice import saturation_note
 from .console import console_tick
 from .extract import (extract_code, extract_exec_answer, extract_exec_bundle_answers,
                       extract_top_answer, extract_top_bundle_answers)
-from .generate import (ensure_speed_probe, generate_one, generation_stats,
-                       load_gen_checkpoint, speed_summary)
+from .generate import (ensure_speed_probe, generation_stats, load_gen_checkpoint,
+                       speed_summary)
 from .grading import eval_one_problem
 from .harness import begin_pass, end_probe, harness_line, resolve_run_dir
+from .harness_agent import agent_summary, make_generator, print_agent_lines
 from .loaders import load_exec_problems, load_problems, load_top_problems
 from .prompts import format_prompt
 from .report import build_report
@@ -33,8 +34,11 @@ def run_one(args, scen, base, model_id, harness_val, harness_note,
     name, or None when the pass stopped before producing anything."""
     run_slug = resolve_run_dir(base, scen, harness_val)
     run_dir = os.path.join("bench", run_slug)
+    agent = bool(harness_val == "yes" and args.harness_agent)
+    if agent and not harness_note:
+        harness_note = f"dsh-headless {getattr(args, 'dsh_version', '') or ''}".strip()
     harness_note, harness_probe, _ = begin_pass(
-        run_slug, run_dir, model_id, harness_val, harness_note, harness_src)
+        run_slug, run_dir, model_id, harness_val, harness_note, harness_src, agent=agent)
 
     if args.speed_probe:
         ensure_speed_probe(args.base_url, model_id, run_dir)
@@ -87,25 +91,21 @@ def run_one(args, scen, base, model_id, harness_val, harness_note,
                 if (p["question_id"], si) not in done:
                     tasks.append((p["question_id"], si, messages))
         if tasks:
-            payload_extras = {
-                "temperature": args.temperature,
-                "top_p": args.top_p,
-                "max_tokens": args.max_tokens,
-            }
-            if args.extra_body:
-                payload_extras.update(json.loads(args.extra_body))
-            print(f"Generating {len(tasks)} outputs with {args.workers} worker(s)...")
+            gen, runner = make_generator(args, run_dir, model_id, agent)
+            print(f"Generating {len(tasks)} outputs with {args.workers} worker(s)"
+                  + (" through dsh headless (agent with tools)..." if agent else "..."))
             t0 = time.time()
             gen_count = 0
             with open(gen_path, "a", encoding="utf-8") as out:
                 with ThreadPoolExecutor(max_workers=args.workers) as pool:
                     futures = [
-                        pool.submit(generate_one, t, args.base_url, model_id,
-                                    payload_extras, 3, args.request_timeout)
+                        pool.submit(gen, t[0], t[1], t[2], args.max_tokens)
                         for t in tasks
                     ]
                     for fut in futures:
                         rec = fut.result()
+                        if rec is None:
+                            continue
                         out.write(json.dumps(rec, ensure_ascii=False) + "\n")
                         out.flush()
                         gen_count += 1
@@ -115,6 +115,8 @@ def run_one(args, scen, base, model_id, harness_val, harness_note,
                         print(f"[gen {gen_count}/{len(tasks)}] {rec['qid']}#{rec['si']} "
                               f"{secs}s{tps}{fail}", flush=True)
                         console_tick(run_dir)
+            if runner is not None and runner.aborted:
+                print(f"\nSTOPPED: {runner.aborted}")
             print(f"Generation phase done in {(time.time() - t0) / 60:.1f} min")
 
     done = load_gen_checkpoint(gen_path)
@@ -243,7 +245,10 @@ def run_one(args, scen, base, model_id, harness_val, harness_note,
     gs = generation_stats(done, gen_path, args.max_tokens, per_problem_pass, len(missing))
     speed = speed_summary(done, run_dir)
     summary_path = os.path.join(run_dir, "_summary.json")
-    end_probe(harness_val, harness_note, harness_probe)
+    if not agent:
+        end_probe(harness_val, harness_note, harness_probe)
+    agent_info = agent_summary(done, version=getattr(args, "dsh_version", None),
+                               args=args) if agent else None
     bundle_m = None
     if bundle > 1 and sub_total:
         bundle_m = {"k": bundle, "calls": sub_total,
@@ -279,6 +284,8 @@ def run_one(args, scen, base, model_id, harness_val, harness_note,
         # What the sample was drawn from: rows, questions, labels, date range.
         "pool": state.POOL_FACTS or None,
         "generation_stats": gs,
+        "harness_mode": ("agent" if agent else ("raw" if harness_val == "yes" else None)),
+        "agent": agent_info,
         # SINGLE HEADLINE VALUE: pass@1 % on the sampled problem set.
         "score": round(metrics.get("pass@1", 0.0) * 100, 2)
         if metrics.get("pass@1") is not None else None,
@@ -321,6 +328,7 @@ def run_one(args, scen, base, model_id, harness_val, harness_note,
                                   hardest_m, bundle_m=bundle_m,
                                   harden_target=args.harden_target))
     print_speed_lines(summary["speed"], gs, args.max_tokens)
+    print_agent_lines(agent_info)
     print(harness_line(harness_val, harness_src, harness_note, harness_probe))
     print(f"Summary: {summary_path}\n")
 

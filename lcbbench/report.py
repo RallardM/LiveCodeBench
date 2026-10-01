@@ -53,7 +53,8 @@ def build_report(only=None, show=True):
                       (f"x{b_tier.get('k')}" if b_tier.get("k") else "-"))
         table.append([
             r["name"], r.get("model") or r.get("server_model") or "-",
-            r.get("harness") or "unknown",
+            ("yes-agent" if r.get("harness_mode") == "agent"
+             else (r.get("harness") or "unknown")),
             "fast" if scen in ("exec", "top", "fast") else "slow", scen,
             r.get("score"), total, cfg.get("n"),
             bundle_col,
@@ -127,11 +128,12 @@ REPORT_LEGEND = (
     "prefill-tok/s = prompt-reading speed, gen-tok/s = generation speed, both from\n"
     "the server's own timings. cap = per-answer max_tokens; trunc% = share of answers\n"
     "that hit it; when-complete = pass rate over the answers that did NOT hit it.\n"
-    "harness = did an agent chat share the model server during that run (asked out\n"
-    "loud, never guessed): its requests queue behind the benchmark and inflate gen-min.\n"
-    "Nothing is routed through the harness, so both rows are the raw model. unknown =\n"
-    "nobody answered - set it with --set-harness. bundle = xK: items of K calls\n"
-    "answered in one go, all-or-nothing (--bundle K).\n"
+    "harness = no: the raw model answered. yes-agent: every item was solved by\n"
+    "DeepSeek Harness (dsh headless, its full default tools, same model server) and\n"
+    "its final message graded like a raw answer; gen-min then includes tool time.\n"
+    "yes (older rows / --harness-mode raw): an agent chat merely shared the server and\n"
+    "the raw model answered. unknown = nobody answered - set it with --set-harness.\n"
+    "bundle = xK: items of K calls answered in one go, all-or-nothing (--bundle K).\n"
     "Rows are directly comparable only when test / scenario / problems / n / bundle /\n"
     "cap / sample columns match (suite rows: same scenario and about the same\n"
     "problems, the sample is a fixed order and a faster model just goes further).\n"

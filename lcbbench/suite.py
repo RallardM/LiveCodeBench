@@ -21,10 +21,11 @@ from concurrent.futures import ThreadPoolExecutor
 from . import state
 from .console import console_tick
 from .extract import extract_code, extract_exec_answer, extract_exec_bundle_answers
-from .generate import (ensure_speed_probe, generate_one, generation_stats,
+from .generate import (ensure_speed_probe, generation_stats,
                        load_gen_checkpoint, speed_summary)
 from .grading import eval_one_problem
 from .harness import begin_pass, end_probe, harness_line, resolve_run_dir
+from .harness_agent import agent_summary, make_generator, print_agent_lines
 from .pipeline import print_speed_lines
 from .report import build_report
 from .scoring import count_pass
@@ -78,8 +79,11 @@ def run_suite(args, kind, base, model_id, harness_val, harness_note, harness_src
     skills = list(args.skills_parsed or cfg["skills"])
     run_slug = resolve_run_dir(base, kind, harness_val)
     run_dir = os.path.join("bench", run_slug)
+    agent = bool(harness_val == "yes" and args.harness_agent)
+    if agent and not harness_note:
+        harness_note = f"dsh-headless {getattr(args, 'dsh_version', '') or ''}".strip()
     harness_note, harness_probe, _ = begin_pass(
-        run_slug, run_dir, model_id, harness_val, harness_note, harness_src)
+        run_slug, run_dir, model_id, harness_val, harness_note, harness_src, agent=agent)
     ensure_speed_probe(args.base_url, model_id, run_dir)
     if args.probe_only:
         print("--probe-only: stopping here, nothing generated.")
@@ -133,18 +137,15 @@ def run_suite(args, kind, base, model_id, harness_val, harness_note, harness_src
         return min(caps[item["tier"]], args.max_tokens) if caps else args.max_tokens
 
     deadline = time.time() + left
+    runner = None
     if tasks and left > 0:
-        base_extras = {"temperature": args.temperature, "top_p": args.top_p}
-        if args.extra_body:
-            base_extras.update(json.loads(args.extra_body))
+        gen, runner = make_generator(args, run_dir, model_id, agent)
 
         def guarded(item):
             if time.time() >= deadline:
                 return None
-            extras = dict(base_extras, max_tokens=cap_of(item))
-            return generate_one((item["question_id"], 0, item["messages"]),
-                                args.base_url, model_id, extras, 3,
-                                args.request_timeout)
+            return gen(item["question_id"], 0, item["messages"], cap_of(item),
+                       deadline=deadline)
 
         print(f"Generating up to {len(tasks)} items with {args.workers} worker(s)...")
         t0 = time.time()
@@ -169,7 +170,9 @@ def run_suite(args, kind, base, model_id, harness_val, harness_note, harness_src
         spent += time.time() - t0
         with open(state_path, "w", encoding="utf-8") as f:
             json.dump({"spent_s": round(spent, 1)}, f)
-        if got < len(tasks):
+        if runner is not None and runner.aborted:
+            print(f"\nSTOPPED: {runner.aborted}")
+        elif got < len(tasks):
             print(f"Time budget reached: {got} of {len(tasks)} pending items were"
                   " generated, the rest is left out of the score.")
         print(f"Generation phase done in {(time.time() - t0) / 60:.1f} min")
@@ -238,10 +241,13 @@ def run_suite(args, kind, base, model_id, harness_val, harness_note, harness_src
     rounds_done = min(len(v) for v in cells.values()) if len(cells) == cells_total else 0
     n_items = len(per_problem_pass)
 
-    end_probe(harness_val, harness_note, harness_probe)
+    if not agent:
+        end_probe(harness_val, harness_note, harness_probe)
     gs = generation_stats(done, gen_path, args.max_tokens, per_problem_pass,
                           len(seq) - len(finished))
     speed = speed_summary(done, run_dir)
+    agent_info = agent_summary(done, version=getattr(args, "dsh_version", None),
+                               args=args) if agent else None
     tier_counts = {t: sum(len(v) for (s, tt), v in cells.items() if tt == t)
                    for t in TIERS}
     cap_label = (f"{min(caps.values())}-{min(max(caps.values()), args.max_tokens)}"
@@ -274,6 +280,8 @@ def run_suite(args, kind, base, model_id, harness_val, harness_note, harness_src
             "spent_s": round(spent), "replay_of": replay,
         },
         "generation_stats": gs,
+        "harness_mode": ("agent" if agent else ("raw" if harness_val == "yes" else None)),
+        "agent": agent_info,
         "score": round(total * 100, 2),
         "metrics": {"pass@1": total},
         "metrics_by_difficulty": {t: {"pass@1": v} for t, v in by_tier.items()
@@ -306,6 +314,7 @@ def run_suite(args, kind, base, model_id, harness_val, harness_note, harness_src
         print(f"      no item finished for: {', '.join(missing)} - the budget ended"
               " before the first round completed, so SCORE covers fewer cells")
     print_speed_lines(speed, gs, cap_label)
+    print_agent_lines(agent_info)
     print(harness_line(harness_val, harness_src, harness_note, harness_probe))
     print(f"Summary: {summary_path}\n")
     if report_after:

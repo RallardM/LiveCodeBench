@@ -217,18 +217,26 @@ def ask_label(derived):
         return slug
 
 
-def ask_harness_mode(suggested, folders=None):
+def ask_harness_mode(suggested, folders=None, agent=False):
     """Ask the human how this run shares the model server. Never guessed.
     folders maps the answer to the run folder it produces.
     Returns (mode, note, source) with mode in yes/no/None."""
     opts = {"no": 1, "yes": 2, None: 3}
     dflt = str(opts.get(suggested, 3))
     print("\nQ2 - harness question. This bench never guesses it, so it must be answered:")
-    print("  Is an agent chat (a harness) open on this same model server right now?")
+    if agent:
+        print("  Should every item be solved through DeepSeek Harness (dsh headless, full"
+              " default tools, same model server)?")
+    else:
+        print("  Is an agent chat (a harness) open on this same model server right now?")
     for mode, num in (("no", 1), ("yes", 2)):
-        extra = ("its requests queue behind the benchmark, so wall time (gen-min)"
-                 " inflates, tok/s does not" if mode == "yes"
-                 else "your own window, nothing else hits the model server")
+        if agent:
+            extra = ("the agent solves each item with its tools (shell, editor, ...)"
+                     if mode == "yes" else "the raw model answers, nothing else on the server")
+        else:
+            extra = ("its requests queue behind the benchmark, so wall time (gen-min)"
+                     " inflates, tok/s does not" if mode == "yes"
+                     else "your own window, nothing else hits the model server")
         folder = f"   -> bench\\{folders[mode]}" if folders else ""
         print(f"  [{num}] {mode:<6} {extra}{folder}")
     unknown_extra = "leave that column empty" + (
@@ -253,7 +261,7 @@ def ask_harness_mode(suggested, folders=None):
             return None, None, "not answered"
         print("Please answer 1, 2 or 3.")
     note = None
-    if mode == "yes":
+    if mode == "yes" and not agent:
         note = ask_harness_which(harness_addr_candidates())
     return mode, note, "you answered"
 
@@ -337,7 +345,7 @@ def resolve_run_dir(base, scen, mode):
     return cands[0]
 
 
-def both_answers(base, scen, preset_note=None):
+def both_answers(base, scen, preset_note=None, agent=False):
     """--both: one command, both answers to the harness question, two comparable
     rows. The no pass comes first (nothing else should be on the model server
     while it runs), then the yes pass with the agent chat working as usual.
@@ -345,36 +353,53 @@ def both_answers(base, scen, preset_note=None):
     print("\n--both: the same problems twice, one pass per answer to the harness"
           " question.")
     for num, mode in enumerate(("no", "yes"), 1):
+        if agent:
+            tail = (" (the raw model, nothing else on the server while it runs)"
+                    if mode == "no" else
+                    " (each item solved by DeepSeek Harness: dsh headless, full default"
+                    " tools, same model server)")
+        else:
+            tail = (" (nothing else on the server while it runs)" if mode == "no"
+                    else " (agent chat working on its own tasks while it runs)")
         print(f"   pass {num}/2 answers '{mode}' -> bench\\{resolve_run_dir(base, scen, mode)}"
-              + (" (nothing else on the server while it runs)" if mode == "no"
-                 else " (agent chat working on its own tasks while it runs)"))
-    print("   Both passes ask the model the same way: the chat never sees a"
-          " problem,")
-    print("   it only shares the server, so both rows are the raw model.")
-    note = ask_harness_pair_note(preset_note)
-    if preset_note:
-        print(f"   pass 2/2 uses that harness: {note}")
+              + tail)
+    if agent:
+        print("   Same items, same prompt text, same graders; the only difference is that"
+              " the agent may use tools.")
+        note = "dsh-headless"
+    else:
+        print("   Both passes ask the model the same way: the chat never sees a"
+              " problem,")
+        print("   it only shares the server, so both rows are the raw model.")
+        note = ask_harness_pair_note(preset_note)
+        if preset_note:
+            print(f"   pass 2/2 uses that harness: {note}")
     if sys.stdin.isatty():
         try:
             input("Press Enter to start pass 1/2 (close the agent chat first, so"
-                  " the 'no' row really runs alone): ")
+                  " the 'no' row really runs alone): " if not agent else
+                  "Press Enter to start pass 1/2 (nothing else should use the model"
+                  " server until it is done): ")
         except EOFError:
             print("   (no keyboard: starting right away)")
         except KeyboardInterrupt:
             raise SystemExit("\nStopped before pass 1/2, so nothing was started."
                              " One pass at a time works with --harness yes|no.")
     return [("no", None, "you answered: nothing else on the server (--both pass 1)"),
-            ("yes", note, "you answered: the agent chat shared the server"
-                          " (--both pass 2)")]
+            ("yes", note, ("you answered: solved through dsh headless (--both pass 2)"
+                           if agent else
+                           "you answered: the agent chat shared the server"
+                           " (--both pass 2)"))]
 
 
-def begin_pass(run_slug, run_dir, model_id, harness_val, harness_note, harness_src):
+def begin_pass(run_slug, run_dir, model_id, harness_val, harness_note, harness_src,
+               agent=False):
     """Everything a pass prints and checks before it touches the model: the
     run banner, the console hint and the harness address ping.
     Returns (harness_note, harness_probe, resuming)."""
     resuming = os.path.isfile(os.path.join(run_dir, "generations.jsonl"))
     os.makedirs(run_dir, exist_ok=True)
-    if harness_val == "yes" and not harness_note:
+    if harness_val == "yes" and not harness_note and not agent:
         guess, label = harness_auto_note()
         if guess:
             harness_note = guess
@@ -394,7 +419,10 @@ def begin_pass(run_slug, run_dir, model_id, harness_val, harness_note, harness_s
     # The harness note may carry an address: check it is really there. Evidence
     # only - it can never turn a "no" into a "yes" or the other way round.
     probe = {}
-    if harness_val == "yes":
+    if harness_val == "yes" and agent:
+        print("           harness: each item is solved by dsh headless with its full default"
+              " toolset (no chat window needed)")
+    elif harness_val == "yes":
         start = probe_harness(harness_note)
         save_harness_addr(harness_note, start)
         if start:
