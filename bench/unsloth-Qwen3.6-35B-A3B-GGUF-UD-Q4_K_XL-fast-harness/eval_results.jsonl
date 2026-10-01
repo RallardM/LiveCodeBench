@@ -1,0 +1,31 @@
+{"qid": "code-3484", "results": [[-4]], "meta": [{"error": "SyntaxError('invalid syntax', ('<string>', 38, 5, 'The problem asks us to find the lexicographically smallest string obtainable by swapping adjacent digits in a given string $s$ at most once, provided that the two digits being swapped have the same parity (both odd or both even).\\n', 38, 12))", "error_code": -4, "error_message": "Compile Error"}]}
+{"qid": "math-easy-gsm8k969", "kind": "math", "results": [[true]], "meta": [{"gold": "1800"}]}
+{"qid": "science-easy-daf2fd24bee345549706f3ccf304b15a", "kind": "mcq", "results": [[false]], "meta": [{"gold": "G"}]}
+{"qid": "reading-easy-3080#1", "kind": "exec", "results": [[false]], "skipped": [false], "meta": [{"execution": "ok"}]}
+{"qid": "code-abc383_b", "results": [[true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true]], "meta": [{"execution": "ok"}]}
+{"qid": "math-medium-m500-342", "kind": "math", "results": [[true]], "meta": [{"gold": "2"}]}
+{"qid": "science-medium-d3344e7e585f4a679db5110053efc24b", "kind": "mcq", "results": [[true]], "meta": [{"gold": "A"}]}
+{"qid": "reading-medium-3046#b2c0", "kind": "execb", "results": [[false]], "skipped": [false], "meta": [{"sub": [false, false]}], "sub": [[false, false]]}
+{"qid": "code-3580", "results": [[-4]], "meta": [{"error": "SyntaxError('invalid syntax', ('<string>', 38, 5, 'The problem asks us to find the smallest starting index of a substring in `s` that is \"almost equal\" to `pattern`.\\n', 38, 12))", "error_code": -4, "error_message": "Compile Error"}]}
+{"qid": "math-hard-m500-448", "kind": "math", "results": [[true]], "meta": [{"gold": "44"}]}
+{"qid": "science-hard-4361fea175f941cb912adc842cd797d4", "kind": "mcq", "results": [[true]], "meta": [{"gold": "A"}]}
+{"qid": "reading-hard-2847#b4c0", "kind": "execb", "results": [[true]], "skipped": [false], "meta": [{"sub": [true, true, true, true]}], "sub": [[true, true, true, true]]}
+{"qid": "code-abc393_e", "results": [[-4]], "meta": [{"error": "SyntaxError('invalid syntax', ('<string>', 1, 5, 'The problem asks us to find, for each element $A_i$ in a sequence $A$ of length $N$, the maximum possible GCD of a subset of size $K$ that includes $A_i$. We are given $N$ and $K$, and the sequence $A$. The constraints are $N \\\\le 1.2 \\\\times 10^6$ a", "error_code": -4, "error_message": "Compile Error"}]}
+{"qid": "math-hardest-arena54", "kind": "math", "results": [[false]], "meta": [{"gold": "8\\sqrt{6}"}]}
+{"qid": "science-hardest-59ac43be3dbc4c9c9bbcb48faa1436ae", "kind": "mcq", "results": [[false]], "meta": [{"gold": "G"}]}
+{"qid": "reading-hardest-2881#b6c0", "kind": "execb", "results": [[true]], "skipped": [false], "meta": [{"sub": [true, true, true, true, true, true]}], "sub": [[true, true, true, true, true, true]]}
+{"qid": "code-1873_B", "results": [[-4]], "meta": [{"error": "SyntaxError('invalid syntax', ('<string>', 1, 5, 'The problem asks us to find the maximum product of digits in an array of $n$ digits, after incrementing exactly one digit by 1. We are given $t$ test cases. For each test case, we get $n$ and the array $a$.\\n', 1, 12))", "error_code": -4, "error_message": "Compile Error"}]}
+{"qid": "math-easy-gsm8k446", "kind": "math", "results": [[true]], "meta": [{"gold": "2"}]}
+{"qid": "science-easy-a55b32a5e74443068e950373fcbcc077", "kind": "mcq", "results": [[false]], "meta": [{"gold": "A"}]}
+{"qid": "reading-easy-2756#5", "kind": "exec", "results": [[true]], "skipped": [false], "meta": [{"execution": "ok"}]}
+{"qid": "code-abc365_c", "results": [[-4]], "meta": [{"error": "SyntaxError('invalid syntax', ('<string>', 1, 5, 'The problem asks us to find the maximum non-negative integer $x$ such that the sum of $\\\\min(x, A_i)$ for all $i=1, \\\\dots, N$ is less than or equal to $M$. If this sum is less than or equal to $M$ for arbitrarily large $x$, we should output \"infinit", "error_code": -4, "error_message": "Compile Error"}]}
+{"qid": "math-medium-m500-367", "kind": "math", "results": [[true]], "meta": [{"gold": "1"}]}
+{"qid": "science-medium-5f8fcbb8395740a2b9f0e6bb3d24f551", "kind": "mcq", "results": [[false]], "meta": [{"gold": "J"}]}
+{"qid": "reading-medium-2837#b2c1", "kind": "execb", "results": [[true]], "skipped": [false], "meta": [{"sub": [true, true]}], "sub": [[true, true]]}
+{"qid": "code-3527", "results": [[-4]], "meta": [{"error": "SyntaxError('invalid syntax', ('<string>', 38, 5, 'The problem asks us to maintain an array of colors (0 or 1) arranged in a circle. We need to support two types of queries:\\n', 38, 12))", "error_code": -4, "error_message": "Compile Error"}]}
+{"qid": "math-hard-m500-490", "kind": "math", "results": [[false]], "meta": [{"gold": "14"}]}
+{"qid": "science-hard-71e80a47bba44e659d0d4ab98c6c7218", "kind": "mcq", "results": [[false]], "meta": [{"gold": "C"}]}
+{"qid": "reading-hard-2977#b4c0", "kind": "execb", "results": [[true]], "skipped": [false], "meta": [{"sub": [true, true, true, true]}], "sub": [[true, true, true, true]]}
+{"qid": "code-abc397_d", "results": [[true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, -2]], "meta": [{"output": "-1\n", "inputs": "27", "expected": "3 0\n", "error_code": -2, "error_message": "Wrong answer at line 0"}]}
+{"qid": "math-hardest-arena2", "kind": "math", "results": [[false]], "meta": [{"gold": "79"}]}
+{"qid": "science-hardest-1d74efd3d98949e29c918b26d93ff381", "kind": "mcq", "results": [[true]], "meta": [{"gold": "C"}]}

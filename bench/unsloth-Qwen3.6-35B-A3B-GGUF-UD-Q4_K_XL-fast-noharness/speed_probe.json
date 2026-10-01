@@ -1,0 +1,5 @@
+{
+  "prefill_tokens_per_sec": 753.9,
+  "decode_tokens_per_sec": 40.0,
+  "model": "unsloth/Qwen3.6-35B-A3B-GGUF:UD-Q4_K_XL"
+}

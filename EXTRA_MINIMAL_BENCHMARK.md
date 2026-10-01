@@ -1,96 +1,175 @@
-# EXTRA_MINIMAL_BENCHMARK — bench any local model, copy-paste only
+# EXTRA_MINIMAL_BENCHMARK - bench any local model, copy-paste only
 
-One **SCORE** per run, one row in `bench\report.md`. Run everything from the
-project root (folder holding `lcb_bench.py`) in a **normal PowerShell window**
-(agent sandboxes block the grader's subprocesses). Commands only; every
-explanation lives in [MINIMAL_BENCHMARK.md](MINIMAL_BENCHMARK.md),
-[BENCHMARK_GUIDE.md](BENCHMARK_GUIDE.md), [README_MINIMAL.md](README_MINIMAL.md).
+Every run prints one **SCORE** (% solved, mean of easy / medium / hard / hardest cells),
+the read and write speed in tok/s, and lands as one row in `bench\report.md`.
+Run everything from the **project root** (the folder holding `lcb_bench.py` and
+`lcbbench\`) in a **normal PowerShell window** (agent/IDE sandboxes block the grader's
+subprocesses: `WinError 5 / Access is denied`).
 
-**One test = two rows**: the command from your window, and the same command +
-`--harness yes` from the agent chat. Or add **`--both`** in your window and it
-runs both passes itself. It asks a few questions on the way — Enter always
-accepts what it suggests, and nothing is ever guessed.
+**One test = two rows**: `--both` runs the same items twice, pass 1 with nothing else on
+the model server (`...-noharness`), pass 2 with the agent chat working
+(`...-harness`, replays exactly the items pass 1 finished). Nothing is ever routed
+through the agent, both rows are the raw model. Crashes and closed windows are cheap:
+rerun the same command, it resumes.
 
-## 0. Env (once per window)
+## 0. Install the update and launch the env
 
 ```powershell
-# first time only:  uv venv --python 3.11  ;  uv pip install -e .
+# only if .venv does not exist yet:
+#   uv venv --python 3.11
+#   uv pip install -e .
 .venv\Scripts\Activate.ps1
+# optional, lifts the Hugging Face download rate limit:
+#   $env:HF_TOKEN = "hf_xxx"
 ```
 
-## 1. Grader self-check (once, no server)
+## 1. Grader self-check (once, no server needed)
 
 ```powershell
-python lcb_bench.py --self-test     # -> Self-test: PASSED
+python lcb_bench.py --self-test
 ```
 
-## 2. Serve the model (port 8080)
+`Self-test: PASSED` = grader and answer readers work on this machine.
+
+## 2. Serve the model (default port 8080)
 
 ```powershell
 llama-server -hf "user/Model-GGUF:QUANT" -ngl 99 -c 65536
-# or:  llama-server -m "path\to\model.gguf" -ngl 99 -c 65536
-# keep -c 65536 and --max-tokens 16384 as a pair
+# or from a .gguf file:
+llama-server -m "path\to\your-model.gguf" -ngl 99 -c 65536
 ```
 
-## 3. Fast tests — bundled: K calls per answer, all right or the item fails
+Other servers: add `--base-url` (LM Studio `http://localhost:1234/v1`, vLLM
+`http://localhost:8000/v1`, Ollama `http://localhost:11434/v1`).
+
+## 3. FAST test - all skills, easy to hardest, 2 hours max
 
 ```powershell
-# mental execution: 1 answer = 3 programs x 1 call each, all 3 right or the item fails
-python lcb_bench.py --scenario code_execution --bundle 3 --random-sample 100 --hardest 25 --speed-probe --workers 1 --max-tokens 16384 --eval-workers 8 --both
-
-# test-output prediction: 1 answer = 2 tests of the same problem, both right or the item fails
-python lcb_bench.py --scenario test_output_prediction --bundle 2 --random-sample 100 --hardest 25 --speed-probe --workers 1 --max-tokens 16384 --eval-workers 8 --both
+python lcb_bench.py --suite fast --both
 ```
 
-Still ≥ 90%? The run ends by printing the exact next harder command (the
-harden ratchet). Manual knobs:
+- 4 skills x 4 tiers = 16 cells, one item per cell per round, easy tier first.
+  - **code**: LiveCodeBench, hardest = newest and biggest hard problems
+  - **math**: GSM8K, MATH-500 (L3-4), MATH-500 (L5), AIME 2026 + HMMT Feb 2026
+  - **science**: SuperGPQA easy, middle, hard, hard calculation
+  - **reading** (predict what code prints): 1, 2, 4, 6 calls per answer, all must be right
+- 120 min of generation in total for both passes (pass 1 gets half). New items stop
+  starting when the time is spent, what finished is graded, plus a few minutes of grading.
+- Answer caps per tier: 3072 / 4096 / 6144 / 8192 tokens (`--max-tokens` can only lower them).
+- Prints SCORE, a skill x tier table, prefill and decode tok/s, truncation.
 
 ```powershell
-# heavier answer unit - ceilings: exec K=2..6 holds 233/151/76/74/71 items, top K=2..3 holds 183/77
-python lcb_bench.py --scenario code_execution --bundle 6 --random-sample 71 --workers 1 --max-tokens 16384 --eval-workers 8
-
-# what can any pool give - no GPU touched
-python lcb_bench.py --pool-info --scenario code_execution --random-sample 100
+# knobs (all optional)
+python lcb_bench.py --suite fast --both --budget-min 60          # shorter
+python lcb_bench.py --suite fast --both --skills math,science    # fewer skills
+python lcb_bench.py --suite fast --both --rounds 3               # exact same items for every model
+python lcb_bench.py --suite fast --both --apex                   # hardest math = MathArena Apex (strong models)
 ```
 
-## 4. The long test — the main number (hours, resumable)
+If the table says `no item finished for: ...` the budget ended before round 1 was done:
+raise `--budget-min` or lower `--max-tokens`. Compare rows only with about the same
+`problems` count (or force it with `--rounds`).
+
+## 4. LONG test - code generation, 5 hours max, the main number
 
 ```powershell
-python lcb_bench.py --speed-probe --random-sample 100 --hardest 25 --workers 1 --max-tokens 16384 --eval-workers 8 --both
+python lcb_bench.py --suite long --both
 ```
 
-## 5. Hardest on purpose (long test): 50% hardest + only new contests
+- LiveCodeBench code generation, 4 tiers, full answer cap (`--max-tokens`, default 16384).
+- 300 min of generation in total for both passes. Same time-box, same table.
+- `--budget-min N`, `--rounds N`, `--start-date 2025-01-01` (only newer contests) and
+  `--skills code,math,science,reading` (widen it) work here too.
+
+Detached, so a closed window does not kill it (nothing can be asked, so give the name):
 
 ```powershell
-python lcb_bench.py --scenario code_generation --random-sample 100 --mix 50/25/15/10 --start-date 2025-01-01 --workers 1 --max-tokens 16384 --eval-workers 8
-# same shape, a quarter of the cost:  --random-sample 40
+Start-Process -FilePath ".venv\Scripts\python.exe" `
+  -RedirectStandardOutput "bench\long-run.out.log" -RedirectStandardError "bench\long-run.err.log" `
+  -ArgumentList "lcb_bench.py","--suite","long","--both","--name","mymodel"
+Get-Content bench\long-run.out.log -Wait -Tail 20
 ```
 
-## 6. Report
+## 5. Report
 
 ```powershell
-python lcb_bench.py --report-only    # bench\report.md + .csv, best first
-python lcb_bench.py --list-runs      # numbered
-python lcb_bench.py --delete-run 3   # out of the report (bench\_archive\, never erased)
-python lcb_bench.py --restore-run 1  # back in
+python lcb_bench.py --report-only
 ```
+
+Prints every run side by side, best first, and writes `bench\report.md` + `bench\report.csv`.
+A finished run prints its own row (or the two rows of a `--both` pair).
+Columns: SCORE, problems, cap, trunc%, easy / medium / hard / hardest, code / math /
+science / reading, prefill-tok/s, gen-tok/s, gen-min. Rows are comparable only when
+`test` / `scenario` / `problems` / `n` / `cap` / `sample` match.
+
+## 6. Delete a score from the total report
+
+Deleting never erases: the run's folder moves to `bench\_archive\<stamp>__<name>` and
+putting it back is one command. Run these in a PowerShell window in the project root.
+
+**Step 1 - see what is in the report, numbered:**
+
+```powershell
+python lcb_bench.py --list-runs
+```
+
+```
+Runs in the report:
+     1  mymodel-fast-harness      41.2%  fast fast      yes    58  c13dd219018f 2026-09-29
+     2  mymodel-fast-noharness    43.0%  fast fast      no     61  c13dd219018f 2026-09-29
+     3  mymodel-long-noharness    35.0%  slow long      no     14  d96b09c9412b 2026-09-29
+     * = the run in progress. delete <number> takes one out of the report.
+```
+
+**Step 2 - take one out, by the number it just showed:**
+
+```powershell
+python lcb_bench.py --delete-run 3
+```
+
+```
+deleted mymodel-long-noharness: moved to bench\_archive\20260929-091003__mymodel-long-noharness
+nothing was erased - --restore-run (or 'restore' in the console) brings it back; bench/report.md + .csv are rebuilt without it
+```
+
+The name works too (`--delete-run long-noharness` takes any unique piece). An ambiguous
+name is refused ("matches 2 of them"), and the run being written right now (`*`) cannot
+be deleted.
+
+**Step 3 - check that it is gone from the table:**
+
+```powershell
+python lcb_bench.py --report-only
+```
+
+**Step 4 - only if you changed your mind, put it back.** `--list-runs` also prints the
+archive under `Archived runs (...)` with its own numbering:
+
+```powershell
+python lcb_bench.py --restore-run 1
+```
+
+**While a run is going** you can do all of this without stopping it: press a key in the
+run's window and `bench>` answers between two items. `help` lists the commands, `list`
+numbers them, `delete 2` takes one out, `archive` shows what you deleted, `restore 1`
+puts one back, `status` counts them, `quit` stops listening. `--manage` opens the same
+console on its own, no server needed.
 
 ## Odds and ends
 
 | when | what to add / look at |
 |---|---|
-| from the agent chat | `--harness yes` |
-| detached run | `--harness yes`/`--harness no` + `--name label` (Start-Process pattern: MINIMAL_BENCHMARK.md §2) |
-| a run died | rerun the exact same command — it resumes |
-| move the "too easy" bar | `--harden-target 80` (default: fast 90, long 99) |
-| re-grade without the GPU | `--skip-generate` |
-| what was the hardest tier | the score's own `hardest:` line, `bench\<run>\hardest_ids.json` |
-| raw answers | `bench\<run>\generations.jsonl` |
+| from the agent chat | one pass only: `--suite fast --harness yes` (no `--both`) |
+| a run died or the window closed | rerun the exact same command, it resumes |
+| harness column empty on an old run | `python lcb_bench.py --set-harness yes --name <run>` |
+| raw answers of a run | `bench\<run>\generations.jsonl` |
+| which items a run finished | `bench\<run>\suite_items.json` |
+| the run's numbers | `bench\<run>\_summary.json` (cells, skills, tiers, speeds) |
+| quick, narrow ceiling checks | `--scenario code_execution --bundle 3 --random-sample 100` (old fast tests, they saturate) |
+| any other flag | `python lcb_bench.py --help` |
 
-A fast row is comparable only with the same scenario **and the same `bundle`
-column** (`x3` = three calls per answer). Why those pools saturate and why the
-long test is the ranking: MINIMAL_BENCHMARK.md §3 — short version: the exec
-release is 92 questions from 2023, its 60 hardest rows measured **100%** on
-this machine, and it **held 100% even bundled 4 calls/answer** (160 calls);
-the ratchet then aims the widest net (`--bundle 6 --random-sample 71`).
-`--mix` + `--start-date` is what ranks.
+## Where to look for the result
+
+- The final `SCORE` block of the run (table skill x tier, speeds, harness proof).
+- `bench\report.md` + `bench\report.csv` - all runs in one table.
+- `bench\_archive\<stamp>__<name>` - runs you took out of the report.
