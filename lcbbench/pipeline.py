@@ -16,11 +16,11 @@ from .advice import saturation_note
 from .console import console_tick
 from .extract import (extract_code, extract_exec_answer, extract_exec_bundle_answers,
                       extract_top_answer, extract_top_bundle_answers)
-from .generate import (ensure_speed_probe, generation_stats, load_gen_checkpoint,
-                       speed_summary)
+from .generate import (answer_hash, ensure_speed_probe, generation_stats,
+                       load_gen_checkpoint, speed_summary, split_by_mode)
 from .grading import eval_one_problem
 from .harness import begin_pass, end_probe, harness_line, resolve_run_dir
-from .harness_agent import agent_summary, make_generator, print_agent_lines
+from .harness_agent import agent_summary, fmt_for_kind, make_generator, print_agent_lines
 from .loaders import load_exec_problems, load_problems, load_top_problems
 from .prompts import format_prompt
 from .report import build_report
@@ -80,7 +80,11 @@ def run_one(args, scen, base, model_id, harness_val, harness_note,
 
     # ---- Phase 1: generate -----------------------------------------------
     if not args.skip_generate:
-        done = load_gen_checkpoint(gen_path)
+        done, n_other = split_by_mode(load_gen_checkpoint(gen_path), agent)
+        if n_other:
+            print(f"Ignoring {n_other} earlier answer(s) in this folder that were made in the"
+                  f" other harness mode ({'raw' if agent else 'agent'}): they are redone"
+                  " in this mode.")
         if done:
             print(f"Resume: {len(done)} generations already done")
         tasks = []
@@ -98,8 +102,10 @@ def run_one(args, scen, base, model_id, harness_val, harness_note,
             gen_count = 0
             with open(gen_path, "a", encoding="utf-8") as out:
                 with ThreadPoolExecutor(max_workers=args.workers) as pool:
+                    fmt = fmt_for_kind((scen + "b") if (bundle > 1 and scen in ("exec", "top"))
+                                       else scen)
                     futures = [
-                        pool.submit(gen, t[0], t[1], t[2], args.max_tokens)
+                        pool.submit(gen, t[0], t[1], t[2], args.max_tokens, None, fmt)
                         for t in tasks
                     ]
                     for fut in futures:
@@ -119,7 +125,7 @@ def run_one(args, scen, base, model_id, harness_val, harness_note,
                 print(f"\nSTOPPED: {runner.aborted}")
             print(f"Generation phase done in {(time.time() - t0) / 60:.1f} min")
 
-    done = load_gen_checkpoint(gen_path)
+    done, _ = split_by_mode(load_gen_checkpoint(gen_path), agent)
 
     # ---- Phase 2: extract --------------------------------------------------
     gen_map = {}
@@ -177,12 +183,13 @@ def run_one(args, scen, base, model_id, harness_val, harness_note,
         if evaluated:
             print(f"Resume: {len(evaluated)} problems already evaluated")
 
-    jobs = []
+    jobs, ah_of = [], {}
     if not args.skip_eval:
         for entry in generations:
             qid = entry["question_id"]
-            if qid in evaluated:
-                continue
+            ah_of[qid] = answer_hash(entry["code_list"])
+            if (evaluated.get(qid) or {}).get("ah") == ah_of[qid]:
+                continue    # graded before from this very answer
             # codegen problems carry "in_out"; the fast scenarios only "eval_payload".
             payload = probs_by_id[qid].get("eval_payload") or probs_by_id[qid].get("in_out")
             if payload is None:
@@ -201,6 +208,7 @@ def run_one(args, scen, base, model_id, harness_val, harness_note,
             with ThreadPoolExecutor(max_workers=args.eval_workers) as pool:
                 done_ct = 0
                 for rec in pool.map(eval_one_problem, jobs):
+                    rec["ah"] = ah_of[rec["qid"]]
                     evaluated[rec["qid"]] = rec
                     out.write(json.dumps(rec, ensure_ascii=False) + "\n")
                     out.flush()

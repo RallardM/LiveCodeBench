@@ -29,6 +29,7 @@ import zlib
 import requests
 
 from . import state
+from .extract import extract_mcq_letter, last_boxed
 from .generate import auth_headers, generate_one
 
 DEFAULT_HOME = os.path.join("bench", "_dsh_home")
@@ -226,6 +227,41 @@ def find_suspects(calls):
     return hits
 
 
+def fmt_for_kind(kind, payload=None):
+    """(check, reminder) for the answer format of one item kind, or None. The agent's
+    final message is the graded answer, so if it forgot the required format (for
+    example it saved the solution to a file and only said so) the runner sends one
+    reminder in the same session. That is interface, not help: the content is the
+    agent's own."""
+    if kind == "codegen":
+        return (lambda t: (t or "").count("```") >= 2,
+                "Your last message did not contain the final solution in the required format. "
+                "Reply now with ONLY the complete final solution inside a single ```python "
+                "fenced code block, exactly as the task asked.")
+    if kind in ("exec", "execb"):
+        return (lambda t: "[ANSWER]" in (t or "") and "==" in (t or ""),
+                "Your last message did not contain the answer in the required format. Reply now "
+                "with ONLY the completed assertion(s) inside [ANSWER] and [/ANSWER] tags, as the "
+                "task asked.")
+    if kind in ("top", "topb"):
+        return (lambda t: "assert" in (t or ""),
+                "Your last message did not contain the completed assertion. Reply now with ONLY "
+                "the finished assert statement(s) in a python code block, as the task asked.")
+    if kind == "math":
+        return (lambda t: last_boxed(t) is not None,
+                "Your last message did not contain the final answer in the required format. "
+                "Reply now with ONLY your final answer inside \\boxed{}.")
+    if kind == "mcq":
+        try:
+            n_opts = int(json.loads(payload).get("n_options", 10)) if payload else 10
+        except (ValueError, TypeError, AttributeError):
+            n_opts = 10
+        return (lambda t: bool(extract_mcq_letter(t, n_opts)),
+                "Your last message did not end with the answer in the required format. Reply now "
+                "with ONLY a last line of exactly: Answer: X (X = the letter of the correct option).")
+    return None
+
+
 def build_task(messages):
     """The bench prompt (system + user text, unchanged) plus the evaluation
     note. Same wording for every item, so the only difference to the raw pass is
@@ -291,8 +327,10 @@ class AgentRunner:
         return os.path.join(self.events_dir,
                             f"{safe}-{zlib.crc32(str(qid).encode('utf-8')):08x}.jsonl")
 
-    def generate(self, qid, si, messages, cap, deadline=None):
-        """One item -> a generation record shaped like generate_one's."""
+    def generate(self, qid, si, messages, cap, deadline=None, fmt=None):
+        """One item -> a generation record shaped like generate_one's. fmt =
+        (check, reminder) from fmt_for_kind: one reminder turn when the final
+        message misses the required answer format."""
         if self.aborted:
             return None
         timeout_s = self.base_timeout_s
@@ -304,9 +342,23 @@ class AgentRunner:
         tail += ["--json", "-"]
         work = tempfile.mkdtemp(prefix="lcb-dsh-")
         t0 = time.time()
+        nudged = False
         try:
             out, err, code, timed_out = run_dsh(self.cmd, tail, build_task(messages),
                                                 work, self.env, timeout_s)
+            ev = parse_events(out)
+            first_final = ev["final"] if ev["final"] is not None else (
+                ev["texts"][-1] if ev["texts"] else "")
+            if (fmt and not timed_out and ev["session_id"] and ev["reason"] == "completed"
+                    and not fmt[0](first_final)):
+                nudged = True
+                left = max(120.0, timeout_s - (time.time() - t0))
+                tail2 = tail[:-2] + ["--session-id", ev["session_id"], "--json", "-"]
+                out2, err2, code2, timed_out = run_dsh(self.cmd, tail2, fmt[1], work,
+                                                       self.env, left)
+                out = out + "\n" + out2
+                err = err2 or err
+                code = code2
         except Exception as exc:  # noqa: BLE001
             out, err, code, timed_out = "", f"{type(exc).__name__}: {exc}", -1, False
         finally:
@@ -328,6 +380,8 @@ class AgentRunner:
             "steps": ev["steps"], "tool_calls": len(ev["calls"]),
             "tools": {}, "tool_errors": ev["tool_err"],
             "suspect": find_suspects(ev["calls"]), "exit_code": code,
+            "format_nudged": nudged,
+            "format_missing": bool(fmt and not fmt[0](final)),
         }
         for c in ev["calls"]:
             name = str(c.get("tool"))
@@ -366,6 +420,8 @@ def agent_summary(done, runner=None, version=None, args=None):
         "input_tokens": sum((r.get("prompt_tokens") or 0) for r in done.values() if r.get("agent")),
         "output_tokens": sum((r.get("completion_tokens") or 0) for r in done.values() if r.get("agent")),
         "no_tool_items": sum(1 for a in recs if not a["tool_calls"]),
+        "format_reminders": sum(1 for a in recs if a.get("format_nudged")),
+        "format_still_missing": sum(1 for a in recs if a.get("format_missing")),
         "dsh_version": version,
     }
     if args is not None:
@@ -384,6 +440,11 @@ def print_agent_lines(summary):
           f" ({summary.get('access')} access), {summary['steps']} steps,"
           f" {summary['tool_calls']} tool calls ({tools}), {summary['tool_errors']} tool errors,"
           f" {summary['timeouts']} timeouts")
+    if summary.get("format_reminders") or summary.get("format_still_missing"):
+        print(f"      answer format: {summary.get('format_reminders', 0)} reminder(s) sent in-session"
+              f" because the final message lacked the required format,"
+              f" {summary.get('format_still_missing', 0)} item(s) still without it after that"
+              " (those score as wrong)")
     if summary["no_tool_items"] == summary["tasks"]:
         print("      the agent never used a tool: if that is not what you expect, check that"
               " llama-server was started with --jinja (tool calling) - python lcb_bench.py"
@@ -404,7 +465,7 @@ def make_generator(args, run_dir, model_id, agent):
     if args.extra_body:
         base_extras.update(json.loads(args.extra_body))
 
-    def gen(qid, si, messages, cap, deadline=None):
+    def gen(qid, si, messages, cap, deadline=None, fmt=None):
         return generate_one((qid, si, messages), args.base_url, model_id,
                             dict(base_extras, max_tokens=cap), 3, args.request_timeout)
     return gen, None

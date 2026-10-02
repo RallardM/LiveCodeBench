@@ -6,6 +6,7 @@ import os
 import sys
 import threading
 import time
+import zlib
 
 import requests
 
@@ -91,6 +92,20 @@ def load_gen_checkpoint(gen_path):
                 else:
                     done.pop(key, None)  # failed entries don't count
     return done
+
+
+def split_by_mode(done_all, agent):
+    """Keep only the generations made in this pass's mode (agent records carry an
+    "agent" field, raw ones do not). Returns (kept, number_ignored). A folder that
+    holds answers of the other mode must never be resumed into a mixed score."""
+    keep = {k: r for k, r in done_all.items() if ("agent" in r) == bool(agent)}
+    return keep, len(done_all) - len(keep)
+
+
+def answer_hash(answer):
+    """Identity of the extracted answer a grade belongs to: a stored grade is only
+    reused when the answer it was computed from is unchanged."""
+    return zlib.crc32(json.dumps(answer, ensure_ascii=False, sort_keys=True).encode("utf-8"))
 
 
 def speed_probe(base_url, model_id):
@@ -191,7 +206,14 @@ def generation_stats(done, gen_path, default_cap, per_problem_pass, missing_n):
     failed = 0
     if os.path.exists(gen_path):
         with open(gen_path, encoding="utf-8") as f:
-            failed = sum(1 for line in f if line.strip()) - n_gen
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    failed += 1 if json.loads(line).get("failed") else 0
+                except ValueError:
+                    pass
     return {
         "generated": n_gen,
         "failed_requests": failed,

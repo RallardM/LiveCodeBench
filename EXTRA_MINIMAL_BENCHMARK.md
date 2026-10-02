@@ -14,11 +14,18 @@ subprocesses: `WinError 5 / Access is denied`).
   against the same llama-server, then the agent's final message is graded by the same
   grader as a raw answer. Pass 2 replays exactly the items pass 1 finished.
 
-Crashes and closed windows are cheap: rerun the same command, it resumes.
+**Rerunning the same command for the same model does NOT start a new test.** It resumes the
+folders in `bench\`: finished items are kept and a finished run adds nothing new. So the
+first question you get is **Q0**: "this model already has results, start fresh / resume /
+cancel". Fresh moves the old folders to `bench\_archive` (nothing is erased, `--restore-run`
+brings them back). Without a keyboard (detached) it resumes; force it with `--fresh` or
+`--resume`. Crashes and closed windows are cheap: rerun the same command and answer Resume.
 
 ## 0. Install the update and launch the env
 
 ```powershell
+# once: unzip lcb_bench_update.zip over the project root (keeps bench\ untouched)
+Expand-Archive -Force lcb_bench_update.zip .
 # only if .venv does not exist yet:
 #   uv venv --python 3.11
 #   uv pip install -e .
@@ -77,6 +84,12 @@ python lcb_bench.py --suite fast --both
 - Answer caps per tier: 3072 / 4096 / 6144 / 8192 tokens (`--max-tokens` can only lower them).
 - Prints SCORE, a skill x tier table, prefill and decode tok/s, truncation, and for the
   harness pass the agent line (steps, tool calls per tool, tool errors, timeouts).
+- The raw pass gets about a third of the time, the agent pass the rest (the agent needs
+  roughly twice as long per item and replays only the items the raw pass finished).
+- At the end of pass 2 you get a **paired comparison**: raw vs agent on exactly the items
+  both passes finished, per skill and tier. Compare the passes there, not by the two SCORE
+  numbers (they can cover different cells). One item is worth several points at 2 items per
+  cell, so differences of a few points are noise.
 - The harness pass is slower per item (several model steps, a large agent prompt, tool
   time) and gets what is left of the budget, so its row may hold fewer `problems`. Compare
   the two rows on the same items with `--rounds N`, or raise `--budget-min`.
@@ -130,6 +143,11 @@ web tools off), `DSH_PERMISSION_MODE=danger-full-access`, telemetry off, a clean
 | `--harness-patch FILE` | extra dsh patch overlay (repeatable), e.g. add an MCP server |
 | `--harness-timeout MIN` | kill an item after MIN minutes (default 20 fast, 40 long) |
 | `--harness-cmd CMD` | how to start dsh (default: `dsh` on PATH, else npx; or env `DSH_CMD`) |
+
+If the agent finishes without the required answer format (for example it saved the solution
+to a file and only said so), the runner sends ONE reminder in the same session ("reply now with
+only the final answer in the format asked"). The run prints how many reminders were needed and
+how many items still lacked the format (those score as wrong).
 
 Things to know:
 - Full access means the agent can touch anything on this PC. It starts in an empty temp
@@ -212,7 +230,8 @@ console on its own, no server needed.
 |---|---|
 | one pass only | `--suite fast` (asks raw or agent) or `--suite fast --harness yes` (agent pass, no `--both`) |
 | agent pass does not start | `python lcb_bench.py --harness-check` shows why (dsh missing, server down, no tool calling) |
-| a run died or the window closed | rerun the exact same command, it resumes |
+| a run died or the window closed | rerun the exact same command, answer Resume (Q0) |
+| redo a test for the same model | answer Start fresh at Q0, or add `--fresh` |
 | harness column empty on an old run | `python lcb_bench.py --set-harness yes --name <run>` |
 | raw answers of a run | `bench\<run>\generations.jsonl` |
 | which items a run finished | `bench\<run>\suite_items.json` |

@@ -346,45 +346,36 @@ def resolve_run_dir(base, scen, mode):
 
 
 def both_answers(base, scen, preset_note=None, agent=False):
-    """--both: one command, both answers to the harness question, two comparable
-    rows. The no pass comes first (nothing else should be on the model server
-    while it runs), then the yes pass with the agent chat working as usual.
-    Nothing is ever routed through the harness - it only shares the server."""
-    print("\n--both: the same problems twice, one pass per answer to the harness"
-          " question.")
-    for num, mode in enumerate(("no", "yes"), 1):
-        if agent:
-            tail = (" (the raw model, nothing else on the server while it runs)"
-                    if mode == "no" else
-                    " (each item solved by DeepSeek Harness: dsh headless, full default"
-                    " tools, same model server)")
-        else:
-            tail = (" (nothing else on the server while it runs)" if mode == "no"
-                    else " (agent chat working on its own tasks while it runs)")
-        print(f"   pass {num}/2 answers '{mode}' -> bench\\{resolve_run_dir(base, scen, mode)}"
-              + tail)
+    """--both: one command, two passes over the same items, two comparable rows.
+    Pass 1 is the raw model (nothing else should use the model server), pass 2
+    is the harness pass. Nothing is asked except a final go-ahead."""
+    f1 = resolve_run_dir(base, scen, "no")
+    f2 = resolve_run_dir(base, scen, "yes")
+    print("\nThis runs the test twice on the same items:")
+    print(f"   pass 1 - the raw model       -> bench\\{f1}")
     if agent:
-        print("   Same items, same prompt text, same graders; the only difference is that"
-              " the agent may use tools.")
+        print(f"   pass 2 - with the harness    -> bench\\{f2}")
+        print("            (DeepSeek Harness solves each item with its tools: shell, editor,"
+              " planning...; same model server, same grader)")
         note = "dsh-headless"
     else:
-        print("   Both passes ask the model the same way: the chat never sees a"
-              " problem,")
-        print("   it only shares the server, so both rows are the raw model.")
+        print(f"   pass 2 - agent chat shared   -> bench\\{f2}")
+        print("            (the raw model answers again while your agent chat works on the"
+              " same server)")
         note = ask_harness_pair_note(preset_note)
         if preset_note:
-            print(f"   pass 2/2 uses that harness: {note}")
+            print(f"   pass 2 uses that harness: {note}")
+    print("Nothing else should use the model server while it runs.")
     if sys.stdin.isatty():
         try:
-            input("Press Enter to start pass 1/2 (close the agent chat first, so"
-                  " the 'no' row really runs alone): " if not agent else
-                  "Press Enter to start pass 1/2 (nothing else should use the model"
-                  " server until it is done): ")
+            ans = input("Start now? Enter = yes, n = cancel: ")
         except EOFError:
             print("   (no keyboard: starting right away)")
+            ans = ""
         except KeyboardInterrupt:
-            raise SystemExit("\nStopped before pass 1/2, so nothing was started."
-                             " One pass at a time works with --harness yes|no.")
+            raise SystemExit("\nCancelled, nothing was started.")
+        if ans.strip().lower() in ("n", "no", "q", "quit", "cancel"):
+            raise SystemExit("Cancelled, nothing was started.")
     return [("no", None, "you answered: nothing else on the server (--both pass 1)"),
             ("yes", note, ("you answered: solved through dsh headless (--both pass 2)"
                            if agent else
@@ -392,11 +383,79 @@ def both_answers(base, scen, preset_note=None, agent=False):
                            " (--both pass 2)"))]
 
 
+def existing_run_folders(base, kind):
+    """Run folders that already hold results for this model + test (+ both modes)."""
+    suffix = SCEN_SUFFIX[kind]
+    stem = base if (suffix and base.endswith(suffix)) else base + suffix
+    found = []
+    for suf in ("-noharness", "-harness", ""):
+        folder = stem + suf
+        d = os.path.join("bench", folder)
+        gen = os.path.join(d, "generations.jsonl")
+        summ = _load_json(os.path.join(d, "_summary.json"))
+        if not os.path.isfile(gen) and not summ:
+            continue
+        n = sum((summ or {}).get("counts", {}).values()) if summ else 0
+        if not n and os.path.isfile(gen):
+            try:
+                with open(gen, encoding="utf-8") as f:
+                    n = sum(1 for line in f if line.strip())
+            except OSError:
+                n = 0
+        hv = (summ or {}).get("harness")
+        if hv == "yes":
+            mode = ("agent (dsh)" if (summ or {}).get("harness_mode") == "agent"
+                    else "agent chat shared the server (old style)")
+        elif hv == "no":
+            mode = "raw model"
+        else:
+            mode = "mode not recorded"
+        found.append({"folder": folder, "score": (summ or {}).get("score"), "items": n,
+                      "date": ((summ or {}).get("generated_at") or "")[:10],
+                      "mode": mode, "finished": bool(summ)})
+    return found
+
+
+def ask_existing(runs):
+    """Q0: this model already has results for this test. Returns 'fresh' or
+    'resume'; cancel exits."""
+    print("\nQ0 - existing results. This model already has results for this test:")
+    for r in runs:
+        score = f"{r['score']:.1f}%" if isinstance(r["score"], (int, float)) else "no score"
+        print(f"   bench\\{r['folder']}\n        {score}, {r['items']} items, {r['date'] or 'unfinished'},"
+              f" {r['mode']}")
+    default = "1" if all(r["finished"] for r in runs) else "2"
+    print("What do you want to do?")
+    print("  [1] Start fresh - the old results move to bench\\_archive (nothing is erased,"
+          " --restore-run brings them back)")
+    print("  [2] Resume - keep the finished items and continue where it stopped (a run"
+          " that is already complete adds nothing new)")
+    print("  [3] Cancel")
+    while True:
+        ans = _ask(f"Your choice [1/2/3] (Enter = {default}): ")
+        if ans is None:
+            return "resume"
+        ans = ans.strip() or default
+        if ans == "1":
+            return "fresh"
+        if ans == "2":
+            return "resume"
+        if ans == "3":
+            raise SystemExit("Cancelled, nothing was started.")
+        print("Please answer 1, 2 or 3.")
+
+
 def begin_pass(run_slug, run_dir, model_id, harness_val, harness_note, harness_src,
                agent=False):
     """Everything a pass prints and checks before it touches the model: the
     run banner, the console hint and the harness address ping.
     Returns (harness_note, harness_probe, resuming)."""
+    if run_slug in state.FRESH_RUNS and os.path.isdir(run_dir):
+        from .console import archive_run
+        dest, complaint = archive_run({"path": run_dir, "folder": run_slug})
+        state.FRESH_RUNS.discard(run_slug)
+        print(f"Starting fresh: the old results of bench\\{run_slug} were moved to {dest}"
+              if not complaint else f"Could not archive the old results ({complaint}); resuming.")
     resuming = os.path.isfile(os.path.join(run_dir, "generations.jsonl"))
     os.makedirs(run_dir, exist_ok=True)
     if harness_val == "yes" and not harness_note and not agent:

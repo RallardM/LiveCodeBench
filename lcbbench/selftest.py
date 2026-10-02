@@ -9,7 +9,9 @@ from .extract import (extract_exec_answer, extract_exec_bundle_answers,
                       extract_math_answer, extract_mcq_letter, extract_top_answer,
                       extract_top_bundle_answers)
 from .grading import eval_one_problem
+from .generate import answer_hash, split_by_mode
 from .grading_qa import math_equal
+from .harness_agent import fmt_for_kind
 from .suite_data import SKILLS, TIERS, item_sequence
 
 
@@ -216,6 +218,24 @@ def self_test():
     ok = ok and s_ok
     print(f"[{'OK ' if s_ok else 'FAIL'}] suite order: {len(seq)} items, round 1 ends"
           f" at {seq[15]}, round 2 starts at {seq[16]}")
+
+    # resume safety and the agent answer-format check
+    keep, n_other = split_by_mode({("a", 0): {"agent": {}}, ("b", 0): {"output": "x"}}, True)
+    code_chk = fmt_for_kind("codegen")[0]
+    mcq_chk = fmt_for_kind("mcq", json.dumps({"n_options": 4}))[0]
+    math_chk = fmt_for_kind("math")[0]
+    more = [
+        ("split_by_mode keeps only this mode", (sorted(keep), n_other), ([("a", 0)], 1)),
+        ("answer_hash is stable and answer-specific",
+         answer_hash("x") == answer_hash("x") != answer_hash("y"), True),
+        ("format check codegen", (code_chk("```python\nx=1\n```"), code_chk("saved to a file")), (True, False)),
+        ("format check mcq", (mcq_chk("blah\nAnswer: B"), mcq_chk("no idea")), (True, False)),
+        ("format check math", (math_chk("so \\boxed{3}"), math_chk("it is 3")), (True, False)),
+    ]
+    for name, got, want in more:
+        eok = got == want
+        ok = ok and eok
+        print(f"[{'OK ' if eok else 'FAIL'}] {name}: got {got!r} want {want!r}")
 
     print("\nSelf-test:", "PASSED" if ok else "FAILED")
     return 0 if ok else 1

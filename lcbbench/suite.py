@@ -21,11 +21,11 @@ from concurrent.futures import ThreadPoolExecutor
 from . import state
 from .console import console_tick
 from .extract import extract_code, extract_exec_answer, extract_exec_bundle_answers
-from .generate import (ensure_speed_probe, generation_stats,
-                       load_gen_checkpoint, speed_summary)
+from .generate import (answer_hash, ensure_speed_probe, generation_stats,
+                       load_gen_checkpoint, speed_summary, split_by_mode)
 from .grading import eval_one_problem
 from .harness import begin_pass, end_probe, harness_line, resolve_run_dir
-from .harness_agent import agent_summary, make_generator, print_agent_lines
+from .harness_agent import agent_summary, fmt_for_kind, make_generator, print_agent_lines
 from .pipeline import print_speed_lines
 from .report import build_report
 from .scoring import count_pass
@@ -68,8 +68,62 @@ def pass_budget_seconds(clock):
     if clock["passes"] == 1:
         return total
     if clock["pass_index"] == 0:
-        return total * 0.5
+        return total * clock.get("first_share", 0.5)
     return max(60.0, total - (time.time() - clock["start"]))
+
+
+def _load_summary(path):
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return None
+
+
+def paired_comparison(raw_dir, agent_pp, by_id):
+    """Raw model vs agent on exactly the items BOTH passes finished (same items,
+    same grader, cells weighted equally). Returns a dict or None."""
+    raw = _load_summary(os.path.join(raw_dir, "_summary.json"))
+    raw_pp = (raw or {}).get("per_problem_pass") or {}
+    common = [q for q in agent_pp if q in raw_pp and q in by_id]
+    if not common:
+        return None
+
+    def macro(pp):
+        cells = {}
+        for q in common:
+            it = by_id[q]
+            cells.setdefault((it["skill"], it["tier"]), []).append(pp[q])
+        cm = {k: _mean(v) for k, v in cells.items()}
+        skills = sorted({s for s, _ in cm})
+        by_skill = {s: _mean([cm.get((s, t)) for t in TIERS]) for s in skills}
+        by_tier = {t: _mean([cm.get((s, t)) for s in skills]) for t in TIERS}
+        return {"total": _mean(list(cm.values())), "skills": by_skill, "tiers": by_tier}
+
+    r, a = macro(raw_pp), macro(agent_pp)
+    n_skill = {}
+    for q in common:
+        n_skill[by_id[q]["skill"]] = n_skill.get(by_id[q]["skill"], 0) + 1
+    return {"n": len(common), "raw": r, "agent": a, "items_per_skill": n_skill}
+
+
+def print_paired(p):
+    if not p:
+        return
+    def d(x, y):
+        return f"{(y - x) * 100:+6.1f}" if x is not None and y is not None else "     -"
+    print(f"\nPaired comparison on the {p['n']} items BOTH passes finished (same items, same grader):")
+    print(f"   {'':<12}{'raw model':>10}{'agent':>9}{'diff':>8}   items")
+    print(f"   {'ALL':<12}{_pct(p['raw']['total']):>10}{_pct(p['agent']['total']):>9}"
+          f"{d(p['raw']['total'], p['agent']['total']):>8}   {p['n']}")
+    for s in sorted(p["raw"]["skills"]):
+        print(f"   {s:<12}{_pct(p['raw']['skills'][s]):>10}{_pct(p['agent']['skills'].get(s)):>9}"
+              f"{d(p['raw']['skills'][s], p['agent']['skills'].get(s)):>8}   {p['items_per_skill'].get(s, 0)}")
+    for t in TIERS:
+        if p["raw"]["tiers"].get(t) is not None:
+            print(f"   {t:<12}{_pct(p['raw']['tiers'][t]):>10}{_pct(p['agent']['tiers'].get(t)):>9}"
+                  f"{d(p['raw']['tiers'][t], p['agent']['tiers'].get(t)):>8}")
+    print("   Few items per cell means large noise: one item is worth several points.")
 
 
 def run_suite(args, kind, base, model_id, harness_val, harness_note, harness_src,
@@ -109,11 +163,16 @@ def run_suite(args, kind, base, model_id, harness_val, harness_note, harness_src
     print(f"Suite {kind}: {len(seq)} items planned over {len(skills)} skill(s), up to"
           f" {rounds} rounds, skills {', '.join(skills)}")
 
-    # ---- time budget ------------------------------------------------------
+    # ---- earlier work in this folder, time budget -------------------------
+    gen_path = os.path.join(run_dir, "generations.jsonl")
+    done, n_other = split_by_mode(load_gen_checkpoint(gen_path), agent)
+    if n_other:
+        print(f"Ignoring {n_other} earlier answer(s) in this folder that were made in the other"
+              f" harness mode ({'raw' if agent else 'agent'}): they are redone in this mode.")
     pass_s = pass_budget_seconds(clock)
     state_path = os.path.join(run_dir, "suite_state.json")
     spent = 0.0
-    if os.path.isfile(state_path):
+    if os.path.isfile(state_path) and done:
         try:
             with open(state_path, encoding="utf-8") as f:
                 spent = float(json.load(f).get("spent_s", 0.0))
@@ -126,8 +185,6 @@ def run_suite(args, kind, base, model_id, harness_val, harness_note, harness_src
           + ", plus grading. New items stop starting when it is spent.")
 
     # ---- generation -------------------------------------------------------
-    gen_path = os.path.join(run_dir, "generations.jsonl")
-    done = load_gen_checkpoint(gen_path)
     tasks = [it for it in seq if (it["question_id"], 0) not in done]
     if done:
         print(f"Resume: {len(done)} generations already done")
@@ -145,7 +202,8 @@ def run_suite(args, kind, base, model_id, harness_val, harness_note, harness_src
             if time.time() >= deadline:
                 return None
             return gen(item["question_id"], 0, item["messages"], cap_of(item),
-                       deadline=deadline)
+                       deadline=deadline,
+                       fmt=fmt_for_kind(item["eval_kind"], item["eval_payload"]))
 
         print(f"Generating up to {len(tasks)} items with {args.workers} worker(s)...")
         t0 = time.time()
@@ -178,7 +236,7 @@ def run_suite(args, kind, base, model_id, harness_val, harness_note, harness_src
         print(f"Generation phase done in {(time.time() - t0) / 60:.1f} min")
     elif tasks:
         print("The time budget of this pass is already spent: grading what exists.")
-    done = load_gen_checkpoint(gen_path)
+    done, _ = split_by_mode(load_gen_checkpoint(gen_path), agent)
 
     finished = [it for it in seq if (it["question_id"], 0) in done]
     with open(os.path.join(run_dir, "suite_items.json"), "w", encoding="utf-8") as f:
@@ -197,20 +255,22 @@ def run_suite(args, kind, base, model_id, harness_val, harness_note, harness_src
                 if line:
                     rec = json.loads(line)
                     evaluated[rec["qid"]] = rec
-    jobs = []
+    jobs, ah_of = [], {}
     for it in finished:
         qid = it["question_id"]
-        if qid in evaluated:
-            continue
         out = done[(qid, 0)]["output"]
-        jobs.append((qid, it["eval_payload"], [extract_for(it, out)], args.timeout,
-                     it["eval_kind"]))
+        answer = extract_for(it, out)
+        ah_of[qid] = answer_hash(answer)
+        if (evaluated.get(qid) or {}).get("ah") == ah_of[qid]:
+            continue    # graded before from this very answer
+        jobs.append((qid, it["eval_payload"], [answer], args.timeout, it["eval_kind"]))
     if jobs:
         print(f"Grading {len(jobs)} items with {args.eval_workers} workers...")
         t_eval = time.time()
         with open(eval_path, "a", encoding="utf-8") as out:
             with ThreadPoolExecutor(max_workers=args.eval_workers) as pool:
                 for n_done, rec in enumerate(pool.map(eval_one_problem, jobs), 1):
+                    rec["ah"] = ah_of[rec["qid"]]
                     evaluated[rec["qid"]] = rec
                     out.write(json.dumps(rec, ensure_ascii=False) + "\n")
                     out.flush()
@@ -248,6 +308,10 @@ def run_suite(args, kind, base, model_id, harness_val, harness_note, harness_src
     speed = speed_summary(done, run_dir)
     agent_info = agent_summary(done, version=getattr(args, "dsh_version", None),
                                args=args) if agent else None
+    paired = None
+    if agent:
+        paired = paired_comparison(os.path.join("bench", resolve_run_dir(base, kind, "no")),
+                                   per_problem_pass, by_id)
     tier_counts = {t: sum(len(v) for (s, tt), v in cells.items() if tt == t)
                    for t in TIERS}
     cap_label = (f"{min(caps.values())}-{min(max(caps.values()), args.max_tokens)}"
@@ -282,6 +346,7 @@ def run_suite(args, kind, base, model_id, harness_val, harness_note, harness_src
         "generation_stats": gs,
         "harness_mode": ("agent" if agent else ("raw" if harness_val == "yes" else None)),
         "agent": agent_info,
+        "paired_with_raw": paired,
         "score": round(total * 100, 2),
         "metrics": {"pass@1": total},
         "metrics_by_difficulty": {t: {"pass@1": v} for t, v in by_tier.items()
@@ -315,6 +380,7 @@ def run_suite(args, kind, base, model_id, harness_val, harness_note, harness_src
               " before the first round completed, so SCORE covers fewer cells")
     print_speed_lines(speed, gs, cap_label)
     print_agent_lines(agent_info)
+    print_paired(paired)
     print(harness_line(harness_val, harness_src, harness_note, harness_probe))
     print(f"Summary: {summary_path}\n")
     if report_after:

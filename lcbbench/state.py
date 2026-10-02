@@ -15,3 +15,6 @@ CONSOLE_LIVE = False
 CONSOLE_ACTIVE = {"run": None}
 # Bearer token for servers that want one (--api-key or LCB_API_KEY).
 API_KEY = None
+# Run folders the user chose to start fresh: each is moved to bench/_archive
+# right before its pass begins (so a single-pass run only touches its own folder).
+FRESH_RUNS = set()

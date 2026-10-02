@@ -14,7 +14,8 @@ from .console import (archive_run, console_entries, console_find, console_list,
                       console_loop, restore_run)
 from .generate import auth_headers
 from .harness import (HARNESS_SUFFIX, SCEN_SUFFIX, ask_harness_mode, ask_label,
-                      both_answers, probe_harness, recorded_harness,
+                      ask_existing, both_answers, existing_run_folders, probe_harness,
+                      recorded_harness,
                       save_harness_addr, slugify)
 from .harness_agent import preflight
 from .pipeline import run_one
@@ -161,6 +162,13 @@ def build_parser():
     ap.add_argument("--harness-note", default=None, metavar="ADDRESS_OR_NAME",
                     help="With --harness yes (or --both): say WHICH harness shared"
                          " the server. An address is pinged at start and end.")
+    ap.add_argument("--fresh", action="store_true",
+                    help="If this model already has results for this test, move them to"
+                         " bench/_archive and start over, without asking.")
+    ap.add_argument("--resume", action="store_true",
+                    help="If this model already has results for this test, continue"
+                         " them without asking (this is also what a run with no keyboard"
+                         " does).")
     ap.add_argument("--harness-mode", default="agent", choices=["agent", "raw"],
                     help="What the harness pass (--harness yes / --both pass 2) does."
                          " agent (default) = each item is solved by DeepSeek Harness"
@@ -298,6 +306,8 @@ def main():
     if args.harness_note and args.harness != "yes" and args.set_harness != "yes" \
             and not args.both:
         ap.error("--harness-note needs --harness yes (it says which harness it was)")
+    if args.fresh and args.resume:
+        ap.error("--fresh and --resume contradict each other")
     if args.mix and args.hardest:
         ap.error("--mix and --hardest both decide how the sample gets its hard"
                  " problems; use one or the other")
@@ -368,15 +378,20 @@ def main():
               " yes) with --suite fast / --suite long.")
         return
 
+    kind = args.suite or scen          # key into SCEN_SUFFIX
     if args.name:
         base = slugify(args.name)
+        _decide_existing(args, base, kind)
     elif model_id:
-        base = ask_label(slugify(model_id))
+        derived = slugify(model_id)
+        _decide_existing(args, derived, kind)
+        base = ask_label(derived)
+        if base != derived:
+            _decide_existing(args, base, kind)
     else:
         ap.error("the server reported no model id and no --name was given: pass"
                  " --name <label> (and --model <id> if the server needs it).")
 
-    kind = args.suite or scen          # key into SCEN_SUFFIX
     prev_harness = _prev_harness(base, kind)
     if args.both:
         passes = both_answers(base, kind, args.harness_note, agent=args.harness_agent)
@@ -404,10 +419,15 @@ def main():
     if args.suite:
         from .suite import SUITES
         total_min = args.budget_min or SUITES[args.suite]["budget_min"]
+        first_share = 0.34 if (args.harness_agent and len(passes) == 2) else 0.5
         clock = {"total_s": total_min * 60.0, "start": time.time(),
-                 "passes": len(passes), "pass_index": 0}
+                 "passes": len(passes), "pass_index": 0, "first_share": first_share}
         print(f"\nSuite {args.suite}: {total_min} min of generation in total"
               f" over {len(passes)} pass(es), plus grading and dataset loading.")
+        if len(passes) == 2 and args.harness_agent:
+            print("   The raw pass gets about a third of it, the agent pass the rest: the agent"
+                  " needs roughly twice as long per item, and the agent pass replays only the"
+                  " items the raw pass finished.")
 
     done = []
     try:
@@ -429,6 +449,26 @@ def main():
             # the pair belongs together: show just these rows, not the whole
             # history (that is what --report-only is for)
             build_report(only=done)
+
+
+def _decide_existing(args, base, kind):
+    """Q0: results for this model + test already exist - start over or resume?"""
+    runs = existing_run_folders(base, kind)
+    if not runs:
+        return
+    if args.fresh:
+        choice = "fresh"
+    elif args.resume:
+        choice = "resume"
+    elif sys.stdin.isatty():
+        choice = ask_existing(runs)
+    else:
+        choice = "resume"
+        print("Existing results found for this model and test: resuming them"
+              " (add --fresh to start over).")
+    if choice == "fresh":
+        state.FRESH_RUNS.update(r["folder"] for r in runs)
+        print("Old results will be moved to bench\\_archive when each pass starts.")
 
 
 def _prev_harness(base, kind):
