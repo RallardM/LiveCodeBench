@@ -11,14 +11,14 @@ import sys
 import time
 from concurrent.futures import ThreadPoolExecutor
 
-from . import state
+from . import grading, state
 from .advice import saturation_note
 from .console import console_tick
 from .extract import (extract_code, extract_exec_answer, extract_exec_bundle_answers,
                       extract_top_answer, extract_top_bundle_answers)
 from .generate import (answer_hash, ensure_speed_probe, generation_stats,
                        load_gen_checkpoint, speed_summary, split_by_mode)
-from .grading import eval_one_problem
+from .grading import eval_one_problem, get_crash_count
 from .harness import begin_pass, end_probe, harness_line, resolve_run_dir
 from .harness_agent import agent_summary, fmt_for_kind, make_generator, print_agent_lines
 from .loaders import load_exec_problems, load_problems, load_top_problems
@@ -171,53 +171,65 @@ def run_one(args, scen, base, model_id, harness_val, harness_note,
     print(f"Wrote generations.json ({len(generations)} problems, n={args.n})")
 
     # ---- Phase 3: evaluate ---------------------------------------------------
-    eval_path = os.path.join(run_dir, "eval_results.jsonl")
-    evaluated = {}
-    if os.path.exists(eval_path):
-        with open(eval_path, encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if line:
-                    rec = json.loads(line)
-                    evaluated[rec["qid"]] = rec
-        if evaluated:
-            print(f"Resume: {len(evaluated)} problems already evaluated")
+    # Disable the interactive console while grading starts child processes.
+    # The console's msvcrt.kbhit() interferes with Windows multiprocessing
+    # spawn pipe handles, causing "OSError: [WinError 6] The handle is invalid".
+    console_was_live = state.CONSOLE_LIVE
+    state.CONSOLE_LIVE = False
+    try:
+        eval_path = os.path.join(run_dir, "eval_results.jsonl")
+        evaluated = {}
+        if os.path.exists(eval_path):
+            with open(eval_path, encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line:
+                        rec = json.loads(line)
+                        evaluated[rec["qid"]] = rec
+            if evaluated:
+                print(f"Resume: {len(evaluated)} problems already evaluated")
 
-    jobs, ah_of = [], {}
-    if not args.skip_eval:
-        for entry in generations:
-            qid = entry["question_id"]
-            ah_of[qid] = answer_hash(entry["code_list"])
-            if (evaluated.get(qid) or {}).get("ah") == ah_of[qid]:
-                continue    # graded before from this very answer
-            # codegen problems carry "in_out"; the fast scenarios only "eval_payload".
-            payload = probs_by_id[qid].get("eval_payload") or probs_by_id[qid].get("in_out")
-            if payload is None:
-                sys.exit(f"Internal error: problem {qid} has no eval payload "
-                         f"(keys: {sorted(probs_by_id[qid])})")
-            jobs.append((qid, payload,
-                         entry["code_list"], args.timeout,
-                         (scen + "b") if (bundle > 1 and scen in ("exec", "top"))
-                         else scen))
+        jobs, ah_of = [], {}
+        if not args.skip_eval:
+            for entry in generations:
+                qid = entry["question_id"]
+                ah_of[qid] = answer_hash(entry["code_list"])
+                if (evaluated.get(qid) or {}).get("ah") == ah_of[qid]:
+                    continue    # graded before from this very answer
+                # codegen problems carry "in_out"; the fast scenarios only "eval_payload".
+                payload = probs_by_id[qid].get("eval_payload") or probs_by_id[qid].get("in_out")
+                if payload is None:
+                    sys.exit(f"Internal error: problem {qid} has no eval payload "
+                             f"(keys: {sorted(probs_by_id[qid])})")
+                jobs.append((qid, payload,
+                             entry["code_list"], args.timeout,
+                             (scen + "b") if (bundle > 1 and scen in ("exec", "top"))
+                             else scen))
 
-    if jobs:
-        print(f"Evaluating {len(jobs)} problems with {args.eval_workers} eval "
-              f"workers ({args.timeout}s/test budget)...")
-        t_eval = time.time()
-        with open(eval_path, "a", encoding="utf-8") as out:
-            with ThreadPoolExecutor(max_workers=args.eval_workers) as pool:
-                done_ct = 0
-                for rec in pool.map(eval_one_problem, jobs):
-                    rec["ah"] = ah_of[rec["qid"]]
-                    evaluated[rec["qid"]] = rec
-                    out.write(json.dumps(rec, ensure_ascii=False) + "\n")
-                    out.flush()
-                    done_ct += 1
-                    if done_ct % 10 == 0 or done_ct == len(jobs):
-                        print(f"[eval {done_ct}/{len(jobs)}] "
-                              f"elapsed {(time.time() - t_eval) / 60:.1f} min", flush=True)
-                    console_tick(run_dir)
-    else:
+        if jobs:
+            print(f"Evaluating {len(jobs)} problems with {args.eval_workers} eval "
+                  f"workers ({args.timeout}s/test budget)...")
+            t_eval = time.time()
+            with open(eval_path, "a", encoding="utf-8") as out:
+                with ThreadPoolExecutor(max_workers=args.eval_workers) as pool:
+                    done_ct = 0
+                    for rec in pool.map(eval_one_problem, jobs):
+                        rec["ah"] = ah_of[rec["qid"]]
+                        evaluated[rec["qid"]] = rec
+                        out.write(json.dumps(rec, ensure_ascii=False) + "\n")
+                        out.flush()
+                        done_ct += 1
+                        if done_ct % 10 == 0 or done_ct == len(jobs):
+                            print(f"[eval {done_ct}/{len(jobs)}] "
+                                  f"elapsed {(time.time() - t_eval) / 60:.1f} min", flush=True)
+        crash_count = grading.get_crash_count()
+        if crash_count:
+            print(f"WARNING: {crash_count} grading child process(es) died "
+                  "unexpectedly — their answers were scored as failures.")
+    finally:
+        # Re-enable the console after grading is done.
+        state.CONSOLE_LIVE = console_was_live
+    if not jobs:
         print("Evaluation already complete for current problem set")
 
     # ---- Phase 4: metrics ------------------------------------------------------

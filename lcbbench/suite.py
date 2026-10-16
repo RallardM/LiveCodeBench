@@ -18,7 +18,7 @@ import os
 import time
 from concurrent.futures import ThreadPoolExecutor
 
-from . import state
+from . import grading, state
 from .console import console_tick
 from .extract import extract_code, extract_exec_answer, extract_exec_bundle_answers
 from .generate import (answer_hash, ensure_speed_probe, generation_stats,
@@ -246,39 +246,51 @@ def run_suite(args, kind, base, model_id, harness_val, harness_note, harness_src
         return None
 
     # ---- grading ----------------------------------------------------------
-    eval_path = os.path.join(run_dir, "eval_results.jsonl")
-    evaluated = {}
-    if os.path.exists(eval_path):
-        with open(eval_path, encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if line:
-                    rec = json.loads(line)
-                    evaluated[rec["qid"]] = rec
-    jobs, ah_of = [], {}
-    for it in finished:
-        qid = it["question_id"]
-        out = done[(qid, 0)]["output"]
-        answer = extract_for(it, out)
-        ah_of[qid] = answer_hash(answer)
-        if (evaluated.get(qid) or {}).get("ah") == ah_of[qid]:
-            continue    # graded before from this very answer
-        jobs.append((qid, it["eval_payload"], [answer], args.timeout, it["eval_kind"]))
-    if jobs:
-        print(f"Grading {len(jobs)} items with {args.eval_workers} workers...")
-        t_eval = time.time()
-        with open(eval_path, "a", encoding="utf-8") as out:
-            with ThreadPoolExecutor(max_workers=args.eval_workers) as pool:
-                for n_done, rec in enumerate(pool.map(eval_one_problem, jobs), 1):
-                    rec["ah"] = ah_of[rec["qid"]]
-                    evaluated[rec["qid"]] = rec
-                    out.write(json.dumps(rec, ensure_ascii=False) + "\n")
-                    out.flush()
-                    if n_done % 10 == 0 or n_done == len(jobs):
-                        print(f"[eval {n_done}/{len(jobs)}] "
-                              f"elapsed {(time.time() - t_eval) / 60:.1f} min",
-                              flush=True)
-                    console_tick(run_dir)
+    # Disable the interactive console while grading starts child processes.
+    # The console's msvcrt.kbhit() interferes with Windows multiprocessing
+    # spawn pipe handles, causing "OSError: [WinError 6] The handle is invalid".
+    console_was_live = state.CONSOLE_LIVE
+    state.CONSOLE_LIVE = False
+    try:
+        eval_path = os.path.join(run_dir, "eval_results.jsonl")
+        evaluated = {}
+        if os.path.exists(eval_path):
+            with open(eval_path, encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line:
+                        rec = json.loads(line)
+                        evaluated[rec["qid"]] = rec
+        jobs, ah_of = [], {}
+        for it in finished:
+            qid = it["question_id"]
+            out = done[(qid, 0)]["output"]
+            answer = extract_for(it, out)
+            ah_of[qid] = answer_hash(answer)
+            if (evaluated.get(qid) or {}).get("ah") == ah_of[qid]:
+                continue    # graded before from this very answer
+            jobs.append((qid, it["eval_payload"], [answer], args.timeout, it["eval_kind"]))
+        if jobs:
+            print(f"Grading {len(jobs)} items with {args.eval_workers} workers...")
+            t_eval = time.time()
+            with open(eval_path, "a", encoding="utf-8") as out:
+                with ThreadPoolExecutor(max_workers=args.eval_workers) as pool:
+                    for n_done, rec in enumerate(pool.map(eval_one_problem, jobs), 1):
+                        rec["ah"] = ah_of[rec["qid"]]
+                        evaluated[rec["qid"]] = rec
+                        out.write(json.dumps(rec, ensure_ascii=False) + "\n")
+                        out.flush()
+                        if n_done % 10 == 0 or n_done == len(jobs):
+                            print(f"[eval {n_done}/{len(jobs)}] "
+                                  f"elapsed {(time.time() - t_eval) / 60:.1f} min",
+                                  flush=True)
+        crash_count = grading.get_crash_count()
+        if crash_count:
+            print(f"WARNING: {crash_count} grading child process(es) died "
+                  "unexpectedly — their answers were scored as failures.")
+    finally:
+        # Re-enable the console after grading is done.
+        state.CONSOLE_LIVE = console_was_live
 
     # ---- scores -----------------------------------------------------------
     cells, per_problem_pass = {}, {}

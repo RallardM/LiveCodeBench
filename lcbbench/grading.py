@@ -8,10 +8,31 @@ import json
 import multiprocessing
 import sys
 import time
+import threading
 from decimal import Decimal
 from io import StringIO
 from types import ModuleType
 from unittest.mock import mock_open, patch
+
+# ── Worker crash tracking ──────────────────────────────────────────────────
+# Every spawned child that dies before sending any result increments this
+# counter so the caller can report it.  Guarded by a lock because the parent
+# polls from multiple threads (ThreadPoolExecutor in suite.py / pipeline.py).
+_crash_lock = threading.Lock()
+_crash_count = 0
+
+
+def get_crash_count():
+    """Return the number of child processes that died before producing output."""
+    with _crash_lock:
+        return _crash_count
+
+
+def _record_crash():
+    """Increment the crash counter (called from the parent side only)."""
+    global _crash_count
+    with _crash_lock:
+        _crash_count += 1
 
 try:  # some LCB test cases contain very large integers
     sys.set_int_max_str_digits(1_000_000)
@@ -310,8 +331,23 @@ def _eval_child(conn):
 def _eval_one_generation(code, in_outs, timeout):
     ctx = multiprocessing.get_context("spawn")
     parent_conn, child_conn = ctx.Pipe()
-    proc = ctx.Process(target=_eval_child, args=(child_conn,), daemon=True)
-    proc.start()
+    # On Windows, spawn can fail with WinError 6 (invalid handle) or
+    # Errno 9 (bad file descriptor) if stdin state is dirty.
+    # Retry a few times with small delays to let any interfering threads settle.
+    # Each retry must create a fresh Process object because a failed start()
+    # leaves the Process in a broken state that cannot be restarted.
+    max_retries = 5
+    proc = None
+    for attempt in range(max_retries):
+        proc = ctx.Process(target=_eval_child, args=(child_conn,), daemon=True)
+        try:
+            proc.start()
+            break
+        except OSError as e:
+            if (e.winerror == 6 or e.errno == 9) and attempt < max_retries - 1:
+                time.sleep(0.5 * (attempt + 1))
+                continue
+            raise
     parent_conn.send((code, in_outs, timeout))
 
     results, meta = [-4], {"error_code": -4, "error_message": "Child produced nothing"}
@@ -342,6 +378,7 @@ def _eval_one_generation(code, in_outs, timeout):
                 meta = {"error_code": -4, "error_message": msg[1]}
                 break
     except EOFError:
+        _record_crash()
         results = (partial if partial else [-4])
         meta = meta if got_any and results != [-4] else {
             "error_code": -4, "error_message": "Child process died"}
@@ -416,8 +453,23 @@ def _exec_child(conn):
 def _eval_exec_sample(inp, code, out_literal, answer, timeout):
     ctx = multiprocessing.get_context("spawn")
     parent_conn, child_conn = ctx.Pipe()
-    proc = ctx.Process(target=_exec_child, args=(child_conn,), daemon=True)
-    proc.start()
+    # On Windows, spawn can fail with WinError 6 (invalid handle) or
+    # Errno 9 (bad file descriptor) if stdin state is dirty.
+    # Retry a few times with small delays to let any interfering threads settle.
+    # Each retry must create a fresh Process object because a failed start()
+    # leaves the Process in a broken state that cannot be restarted.
+    max_retries = 5
+    proc = None
+    for attempt in range(max_retries):
+        proc = ctx.Process(target=_exec_child, args=(child_conn,), daemon=True)
+        try:
+            proc.start()
+            break
+        except OSError as e:
+            if (e.winerror == 6 or e.errno == 9) and attempt < max_retries - 1:
+                time.sleep(0.5 * (attempt + 1))
+                continue
+            raise
     parent_conn.send((code, out_literal, answer))
     ok, meta = False, {"error_code": -4, "error_message": "Exec child failed"}
     # first budget covers Windows spawn + numpy/pandas imports (measured, not timed)
@@ -438,6 +490,7 @@ def _eval_exec_sample(inp, code, out_literal, answer, timeout):
                 meta = {"error_code": -4, "error_message": msg[1]}
                 return ok, meta
     except EOFError:
+        _record_crash()
         meta = {"error_code": -4, "error_message": "Exec child died"}
     finally:
         try:
